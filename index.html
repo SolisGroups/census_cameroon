@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Coordination | Cameroun</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ===== ÉCRAN DE CHARGEMENT INITIAL ===== -->
+<div id="splashScreen">
+  <div class="splash-inner">
+    <div class="splash-logo">
+      <i class="fas fa-chart-pie"></i>
+    </div>
+    <h4 class="mt-3 fw-bold text-white">Dashboard Coordination</h4>
+    <p class="text-white-50 mb-4">Cameroun</p>
+    <div class="spinner-border text-white" style="width:2rem;height:2rem;" role="status"></div>
+    <p class="text-white-50 mt-3 small" id="splashMsg">Connexion à KoboToolbox…</p>
+  </div>
+</div>
+
+<!-- ===== WRAPPER PRINCIPAL ===== -->
+<div id="mainWrapper" class="d-none">
+
+  <!-- SIDEBAR -->
+  <nav id="sidebar">
+    <div class="sidebar-header">
+      <div class="d-flex align-items-center gap-2">
+        <div class="sidebar-icon-wrap">
+          <i class="fas fa-chart-pie text-warning"></i>
+        </div>
+        <div>
+          <div class="fw-bold lh-sm">Coordination</div>
+          <small class="opacity-60 text-light">Cameroun</small>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-link text-white d-md-none p-0" id="sidebarClose">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div class="sidebar-section-label">Navigation</div>
+    <ul class="nav flex-column sidebar-nav">
+      <li class="nav-item">
+        <a class="nav-link active" href="#" data-page="overview">
+          <i class="fas fa-tachometer-alt"></i><span>Vue d'ensemble</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#" data-page="map">
+          <i class="fas fa-map-marked-alt"></i><span>Carte géographique</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#" data-page="charts">
+          <i class="fas fa-chart-bar"></i><span>Statistiques</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#" data-page="data">
+          <i class="fas fa-table"></i><span>Données brutes</span>
+        </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-section-label mt-3">Système</div>
+    <ul class="nav flex-column sidebar-nav">
+      <li class="nav-item">
+        <a class="nav-link" href="#" data-page="about">
+          <i class="fas fa-info-circle"></i><span>À propos</span>
+        </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <div class="d-flex align-items-center gap-2">
+        <span class="status-dot" id="statusDot"></span>
+        <small id="lastSyncLabel" class="opacity-75">Chargement…</small>
+      </div>
+    </div>
+  </nav>
+
+  <!-- CONTENU PRINCIPAL -->
+  <div id="mainContent">
+
+    <!-- TOP NAVBAR -->
+    <header class="top-navbar">
+      <div class="d-flex align-items-center gap-3">
+        <button class="btn btn-sm btn-outline-secondary d-md-none" id="sidebarToggle">
+          <i class="fas fa-bars"></i>
+        </button>
+        <h6 class="mb-0 fw-bold" id="pageTitle">Vue d'ensemble</h6>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-primary rounded-pill" id="totalBadge">—</span>
+        <button class="btn btn-sm btn-outline-primary" id="refreshBtn" title="Actualiser">
+          <i class="fas fa-sync-alt me-1"></i>Actualiser
+        </button>
+      </div>
+    </header>
+
+    <!-- BARRE DE PROGRESSION -->
+    <div id="loadingBar" class="d-none">
+      <div class="progress" style="height:3px;border-radius:0;">
+        <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
+      </div>
+    </div>
+
+    <!-- PAGES -->
+    <main id="pagesContainer" class="p-3 p-md-4">
+
+      <!-- ===== PAGE : VUE D'ENSEMBLE ===== -->
+      <div id="page-overview" class="page-view">
+
+        <!-- KPI Cards -->
+        <div class="row g-3 mb-4">
+          <div class="col-6 col-sm-3">
+            <div class="kpi-card" style="--kpi-color:#2563eb">
+              <div class="kpi-icon"><i class="fas fa-database"></i></div>
+              <div class="kpi-value" id="kpi-total">—</div>
+              <div class="kpi-label">Total soumissions</div>
+              <div class="kpi-sub" id="kpi-total-sub"></div>
+            </div>
+          </div>
+          <div class="col-6 col-sm-3">
+            <div class="kpi-card" style="--kpi-color:#16a34a">
+              <div class="kpi-icon"><i class="fas fa-check-double"></i></div>
+              <div class="kpi-value" id="kpi-validated">—</div>
+              <div class="kpi-label">Approuvées</div>
+              <div class="kpi-sub" id="kpi-validated-sub"></div>
+            </div>
+          </div>
+          <div class="col-6 col-sm-3">
+            <div class="kpi-card" style="--kpi-color:#d97706">
+              <div class="kpi-icon"><i class="fas fa-map-marker-alt"></i></div>
+              <div class="kpi-value" id="kpi-zones">—</div>
+              <div class="kpi-label">Zones couvertes</div>
+              <div class="kpi-sub" id="kpi-zones-sub"></div>
+            </div>
+          </div>
+          <div class="col-6 col-sm-3">
+            <div class="kpi-card" style="--kpi-color:#7c3aed">
+              <div class="kpi-icon"><i class="fas fa-calendar-week"></i></div>
+              <div class="kpi-value" id="kpi-recent">—</div>
+              <div class="kpi-label">7 derniers jours</div>
+              <div class="kpi-sub" id="kpi-recent-sub"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Graphiques overview -->
+        <div class="row g-3">
+          <div class="col-12 col-xl-8">
+            <div class="dash-card h-100">
+              <div class="dash-card-header">
+                <i class="fas fa-chart-line text-primary me-2"></i>Évolution des soumissions
+              </div>
+              <div class="dash-card-body">
+                <canvas id="chartTrend"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-xl-4">
+            <div class="dash-card h-100">
+              <div class="dash-card-header">
+                <i class="fas fa-circle-half-stroke text-success me-2"></i>Statut de validation
+              </div>
+              <div class="dash-card-body d-flex align-items-center justify-content-center">
+                <canvas id="chartStatus" style="max-height:220px"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-lg-6">
+            <div class="dash-card">
+              <div class="dash-card-header" id="chart1Header">
+                <i class="fas fa-chart-bar text-info me-2"></i>—
+              </div>
+              <div class="dash-card-body">
+                <canvas id="chartField1"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-lg-6">
+            <div class="dash-card">
+              <div class="dash-card-header" id="chart2Header">
+                <i class="fas fa-chart-bar text-warning me-2"></i>—
+              </div>
+              <div class="dash-card-body">
+                <canvas id="chartField2"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== PAGE : CARTE ===== -->
+      <div id="page-map" class="page-view d-none">
+        <div class="dash-card">
+          <div class="dash-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span><i class="fas fa-map-marked-alt text-primary me-2"></i>Répartition géographique</span>
+            <div class="d-flex gap-2 align-items-center">
+              <span class="badge bg-primary" id="mapCount">0 points</span>
+              <select class="form-select form-select-sm" id="mapFieldSelect" style="width:auto;max-width:200px;">
+                <option value="">— Couleur par champ —</option>
+              </select>
+            </div>
+          </div>
+          <div class="dash-card-body p-0">
+            <div id="map" style="height:580px;border-radius:0 0 10px 10px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== PAGE : STATISTIQUES ===== -->
+      <div id="page-charts" class="page-view d-none">
+        <div class="row g-3 mb-3 align-items-end">
+          <div class="col-auto">
+            <label class="form-label small fw-semibold mb-1">Champ à analyser</label>
+            <select class="form-select form-select-sm" id="fieldSelector" style="min-width:240px;"></select>
+          </div>
+        </div>
+        <div id="statsArea" class="row g-3"></div>
+      </div>
+
+      <!-- ===== PAGE : DONNÉES BRUTES ===== -->
+      <div id="page-data" class="page-view d-none">
+        <div class="dash-card">
+          <div class="dash-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span><i class="fas fa-table text-primary me-2"></i>Tableau complet des soumissions</span>
+            <small class="text-muted" id="tableInfo"></small>
+          </div>
+          <div class="dash-card-body">
+            <div class="table-responsive">
+              <table id="dataTable" class="table table-sm table-striped table-hover w-100">
+                <thead id="tableHead"></thead>
+                <tbody id="tableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== PAGE : À PROPOS ===== -->
+      <div id="page-about" class="page-view d-none">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="dash-card">
+              <div class="dash-card-header"><i class="fas fa-info-circle me-2 text-primary"></i>Informations formulaire</div>
+              <div class="dash-card-body" id="formInfoBox">
+                <div class="text-muted small">Chargement…</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="dash-card">
+              <div class="dash-card-header"><i class="fas fa-database me-2 text-success"></i>Résumé des données</div>
+              <div class="dash-card-body" id="dataSummaryBox">
+                <div class="text-muted small">Chargement…</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="alert alert-info mb-0">
+              <i class="fas fa-sync me-2"></i>
+              Les données sont récupérées en direct depuis
+              <strong>KoboToolbox</strong> à chaque ouverture de la page.
+              Cliquez sur <strong>Actualiser</strong> pour recharger manuellement.
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

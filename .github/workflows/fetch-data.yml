@@ -1,0 +1,42 @@
+name: 🔄 Synchronisation données KoboToolbox
+
+on:
+  schedule:
+    - cron: '0 */2 * * *'   # Toutes les 2 heures
+  workflow_dispatch:          # Déclenchement manuel possible
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-and-commit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout du dépôt
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🐍 Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Installer dépendances
+        run: pip install requests
+
+      - name: 🌐 Récupérer les données KoboToolbox
+        env:
+          KOBO_TOKEN: ${{ secrets.KOBO_TOKEN }}
+          FORM_UID: aaoCZKsTPkLeLhdB6wDXdW
+        run: python fetch_data.py
+
+      - name: 💾 Commit et push si données modifiées
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          git diff --staged --quiet \
+            && echo "✅ Aucune modification — pas de commit." \
+            || (git commit -m "🔄 Sync données KoboToolbox [skip ci]" && git push)
