@@ -117,88 +117,144 @@
     <!-- PAGES -->
     <main id="pagesContainer" class="p-3 p-md-4">
 
-      <!-- ===== PAGE : VUE D'ENSEMBLE ===== -->
+      <!-- ===== PAGE : VUE D'ENSEMBLE (OPÉRATIONNEL) ===== -->
       <div id="page-overview" class="page-view">
 
-        <!-- KPI Cards -->
-        <div class="row g-3 mb-4">
-          <div class="col-6 col-sm-3">
-            <div class="kpi-card" style="--kpi-color:#2563eb">
-              <div class="kpi-icon"><i class="fas fa-database"></i></div>
-              <div class="kpi-value" id="kpi-total">—</div>
-              <div class="kpi-label">Total soumissions</div>
-              <div class="kpi-sub" id="kpi-total-sub"></div>
-            </div>
+        <!-- Bannière opérationnelle -->
+        <div class="ops-banner mb-3">
+          <div class="ops-banner-left">
+            <h5 class="ops-banner-title">SUIVI MISE A JOUR DES ZONES DE DENOMBREMENT</h5>
+            <p class="ops-banner-subtitle mb-0">
+              Suivi fiche Contrôleur &nbsp;|&nbsp; <span id="ops-period">—</span> &nbsp;|&nbsp;
+              <span id="ops-nb-ctrl">—</span> contrôleurs &nbsp;|&nbsp; <span id="ops-nb-regions">—</span> régions &nbsp;|
+            </p>
           </div>
-          <div class="col-6 col-sm-3">
-            <div class="kpi-card" style="--kpi-color:#16a34a">
-              <div class="kpi-icon"><i class="fas fa-check-double"></i></div>
-              <div class="kpi-value" id="kpi-validated">—</div>
-              <div class="kpi-label">Approuvées</div>
-              <div class="kpi-sub" id="kpi-validated-sub"></div>
+          <div class="ops-banner-right">
+            <div class="ops-stat-box">
+              <div class="ops-stat-value" id="hdr-ctrl">—</div>
+              <div class="ops-stat-label">Contrôleurs</div>
             </div>
-          </div>
-          <div class="col-6 col-sm-3">
-            <div class="kpi-card" style="--kpi-color:#d97706">
-              <div class="kpi-icon"><i class="fas fa-map-marker-alt"></i></div>
-              <div class="kpi-value" id="kpi-zones">—</div>
-              <div class="kpi-label">Zones couvertes</div>
-              <div class="kpi-sub" id="kpi-zones-sub"></div>
+            <div class="ops-stat-box highlight">
+              <div class="ops-stat-value" id="hdr-regions">—</div>
+              <div class="ops-stat-label">Régions</div>
             </div>
-          </div>
-          <div class="col-6 col-sm-3">
-            <div class="kpi-card" style="--kpi-color:#7c3aed">
-              <div class="kpi-icon"><i class="fas fa-calendar-week"></i></div>
-              <div class="kpi-value" id="kpi-recent">—</div>
-              <div class="kpi-label">7 derniers jours</div>
-              <div class="kpi-sub" id="kpi-recent-sub"></div>
+            <div class="ops-stat-box date-box">
+              <div class="ops-stat-value" id="hdr-date">—</div>
+              <div class="ops-stat-label" id="hdr-date-year">2026</div>
             </div>
           </div>
         </div>
 
-        <!-- Graphiques overview -->
-        <div class="row g-3">
-          <div class="col-12 col-xl-8">
+        <!-- 8 KPI Cards -->
+        <div class="row row-cols-2 row-cols-sm-4 row-cols-xl-8 g-2 mb-3">
+          <div class="col">
+            <div class="kpi8-card" style="--kpi-color:#2563eb">
+              <div class="kpi8-label">Contrôleurs actifs</div>
+              <div class="kpi8-value" id="kpi-o-ctrl">—</div>
+              <div class="kpi8-sub" id="kpi-o-ctrl-sub"></div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="kpi8-card" style="--kpi-color:#0284c7">
+              <div class="kpi8-label">ZD visitées</div>
+              <div class="kpi8-value" id="kpi-o-zdvis">—</div>
+              <div class="kpi8-sub" id="kpi-o-zdvis-sub"></div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="kpi8-card" style="--kpi-color:#d97706">
+              <div class="kpi8-label">ZD achevées cumul</div>
+              <div class="kpi8-value" id="kpi-o-zdach">—</div>
+              <div class="kpi8-sub" id="kpi-o-zdach-sub"></div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="kpi8-card" style="--kpi-color:#16a34a">
+              <div class="kpi8-label">ZD achevées ce jour</div>
+              <div class="kpi8-value" id="kpi-o-zdauj">—</div>
+              <div class="kpi8-sub" id="kpi-o-zdauj-sub"></div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="kpi8-card" style="--kpi-color:#059669">
+              <div class="kpi8-label">Agents présents</div>
+              <div class="kpi8-value" id="kpi-o-agents">—</div>
+              <div class="kpi8-sub" id="kpi-o-agents-sub"></div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="kpi8-card" style="--kpi-color:#dc2626">
+              <div class="kpi8-label">Agents non payés</div>
+              <div class="kpi8-value" id="kpi-o-np">—</div>
+              <div class="kpi8-sub" id="kpi-o-np-sub"></div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="kpi8-card" style="--kpi-color:#ea580c">
+              <div class="kpi8-label">Désistements</div>
+              <div class="kpi8-value" id="kpi-o-des">—</div>
+              <div class="kpi8-sub" id="kpi-o-des-sub"></div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="kpi8-card" style="--kpi-color:#1e293b">
+              <div class="kpi8-label">Ménages identifiés</div>
+              <div class="kpi8-value" id="kpi-o-men">—</div>
+              <div class="kpi8-sub" id="kpi-o-men-sub"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Appréciation | Alertes | Avancement ZC -->
+        <div class="row g-3 mb-3">
+          <!-- Appréciation des journées -->
+          <div class="col-12 col-lg-3">
             <div class="dash-card h-100">
-              <div class="dash-card-header">
-                <i class="fas fa-chart-line text-primary me-2"></i>Évolution des soumissions
+              <div class="dash-card-header" style="text-transform:uppercase;letter-spacing:.06em;font-size:.78rem">
+                <i class="fas fa-star text-warning me-2"></i>Appréciation des journées
               </div>
-              <div class="dash-card-body">
-                <canvas id="chartTrend"></canvas>
+              <div class="dash-card-body" id="appreciation-body">
+                <div class="text-muted small">Chargement…</div>
               </div>
             </div>
           </div>
-          <div class="col-12 col-xl-4">
+          <!-- Alertes prioritaires -->
+          <div class="col-12 col-lg-5">
             <div class="dash-card h-100">
-              <div class="dash-card-header">
-                <i class="fas fa-circle-half-stroke text-success me-2"></i>Statut de validation
+              <div class="dash-card-header alertes-header">
+                <i class="fas fa-exclamation-triangle me-2"></i>ALERTES PRIORITAIRES
               </div>
-              <div class="dash-card-body d-flex align-items-center justify-content-center">
-                <canvas id="chartStatus" style="max-height:220px"></canvas>
-              </div>
-            </div>
-          </div>
-          <div class="col-12 col-lg-6">
-            <div class="dash-card">
-              <div class="dash-card-header" id="chart1Header">
-                <i class="fas fa-chart-bar text-info me-2"></i>—
-              </div>
-              <div class="dash-card-body">
-                <canvas id="chartField1"></canvas>
+              <div class="dash-card-body" id="alertes-body">
+                <div class="text-muted small">Chargement…</div>
               </div>
             </div>
           </div>
-          <div class="col-12 col-lg-6">
-            <div class="dash-card">
-              <div class="dash-card-header" id="chart2Header">
-                <i class="fas fa-chart-bar text-warning me-2"></i>—
+          <!-- Avancement par ZC -->
+          <div class="col-12 col-lg-4">
+            <div class="dash-card h-100">
+              <div class="dash-card-header" style="text-transform:uppercase;letter-spacing:.06em;font-size:.78rem">
+                <i class="fas fa-tasks text-primary me-2"></i>Avancement par ZC clés
               </div>
-              <div class="dash-card-body">
-                <canvas id="chartField2"></canvas>
+              <div class="dash-card-body p-0" id="avancement-body">
+                <div class="p-3 text-muted small">Chargement…</div>
               </div>
             </div>
           </div>
         </div>
+
+        <!-- Actions requises -->
+        <div class="ops-section-title mb-2">
+          <i class="fas fa-bolt me-2"></i>Actions requises
+        </div>
+        <div class="row g-3 mb-3" id="actions-body"></div>
+
+        <!-- Pied de page -->
+        <div class="ops-footer-note">
+          <i class="fas fa-database me-1"></i>
+          Données brutes KoboToolbox — non nettoyées — à utiliser avec précaution avant validation officielle
+          &nbsp;|&nbsp; Rapport <span id="ops-report-date">—</span>
+        </div>
+
       </div>
 
       <!-- ===== PAGE : CARTE ===== -->
@@ -221,6 +277,30 @@
 
       <!-- ===== PAGE : STATISTIQUES ===== -->
       <div id="page-charts" class="page-view d-none">
+        <!-- Évolution & Statut -->
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-xl-8">
+            <div class="dash-card h-100">
+              <div class="dash-card-header">
+                <i class="fas fa-chart-line text-primary me-2"></i>Évolution des soumissions
+              </div>
+              <div class="dash-card-body">
+                <canvas id="chartTrend"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-xl-4">
+            <div class="dash-card h-100">
+              <div class="dash-card-header">
+                <i class="fas fa-circle-half-stroke text-success me-2"></i>Statut de validation
+              </div>
+              <div class="dash-card-body d-flex align-items-center justify-content-center">
+                <canvas id="chartStatus" style="max-height:220px"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Analyse par champ -->
         <div class="row g-3 mb-3 align-items-end">
           <div class="col-auto">
             <label class="form-label small fw-semibold mb-1">Champ à analyser</label>
