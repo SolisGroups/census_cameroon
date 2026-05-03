@@ -793,6 +793,7 @@ function renderStatsForField() {
           label: ctx => ` ${ctx.raw.toLocaleString('fr-FR')} fiche(s) — ${Math.round(ctx.raw/total*100)}%`
         }}
       }
+    }
   });
 
   const top10rev = topN(counts, 10).reverse();
