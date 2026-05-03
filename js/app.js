@@ -240,7 +240,7 @@ function renderOperationalDashboard() {
 
   let totalZdVisitees = 0, totalZdAchevees = 0, totalZdAssignees = 0;
   let zdAcheveesAuj = 0;
-  let totalAgentsPresents = 0, totalNonPayes = 0, totalDesistements = 0, totalMenages = 0;
+  let totalAgentsPresents = 0, totalNonPayes = 0, totalDesistements = 0, totalMenages = 0, zdCount = 0;
 
   allData.forEach(d => {
     const isToday = (d['identification/date_saisie'] || d._submission_time?.split('T')[0]) === today;
@@ -248,12 +248,18 @@ function renderOperationalDashboard() {
     totalZdAchevees  += parseInt(d['totaux_zc/total_zd_achevees']  || 0);
     totalZdAssignees += parseInt(d['totaux_zc/total_zd_assignees'] || 0);
     if (isToday) zdAcheveesAuj += parseInt(d['totaux_zc/total_zd_achevees'] || 0);
-    totalMenages += parseInt(d['totaux_zc/total_menages_zc'] || 0);
+    // Ménages : sommer d'abord les données détaillées par ZD (champ le mieux renseigné)
+    // Si aucune donnée ZD, utiliser le total ZC comme fallback
+    let menZD = 0;
     (d.suivi_zd || []).forEach(zd => {
       totalAgentsPresents += parseInt(zd['suivi_zd/agents/agents_presents']                     || 0);
       totalNonPayes       += parseInt(zd['suivi_zd/difficultes/diff_4d/nb_agents_non_payes']    || 0);
       totalDesistements   += parseInt(zd['suivi_zd/agents/agents_desistements']                 || 0);
+      menZD               += parseInt(zd['suivi_zd/menages/nb_menages']                         || 0);
+      zdCount++;
     });
+    const menZC = parseInt(d['totaux_zc/total_menages_zc'] || 0);
+    totalMenages += menZD > 0 ? menZD : menZC;
   });
 
   const pctAch    = totalZdAssignees > 0 ? (totalZdAchevees / totalZdAssignees * 100).toFixed(1) : 0;
@@ -315,7 +321,7 @@ function renderOperationalDashboard() {
   setText('kpi-o-des',       totalDesistements.toLocaleString('fr-FR'));
   setText('kpi-o-des-sub',   blockedZCs.length > 0 ? blockedZCs.slice(0,2).join(', ') : 'aucun bloquage');
   setText('kpi-o-men',       totalMenages.toLocaleString('fr-FR'));
-  setText('kpi-o-men-sub',   'dans les ZD visitées');
+  setText('kpi-o-men-sub',   `cumulés sur ${zdCount} ZD renseignées`);
 
   // ── Appréciation des journées ──
   const apprecCfg = [
