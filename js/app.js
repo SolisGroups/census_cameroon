@@ -20,6 +20,12 @@ const COLORS = [
   '#a16207','#4f46e5','#059669','#be123c','#0369a1'
 ];
 
+const REGION_NAMES = {
+  '01':'ADAMAOUA','02':'CENTRE','03':'EST','04':'LITTORAL',
+  '05':'NORD','06':'NORD-OUEST','07':'OUEST','08':'OUEST',
+  '09':'SUD','10':'SUD-OUEST'
+};
+
 // ─── État ────────────────────────────────────────────────────────────────
 let allData      = [];
 let formSchema   = null;
@@ -121,16 +127,269 @@ async function reloadData() {
 // ─── Rendu global ────────────────────────────────────────────────────────
 function renderAll() {
   if (!allData.length) return;
-  renderKPIs();
+  renderOperationalDashboard();
   renderTrendChart();
   renderStatusChart();
-  renderOverviewFields();
   renderMap();
   renderTable();
   renderStatsForField();
 }
 
-// ─── KPI Cards ───────────────────────────────────────────────────────────
+// ─── Dashboard opérationnel ──────────────────────────────────────────────
+function renderOperationalDashboard() {
+  if (!allData.length) return;
+
+  const today = new Date().toISOString().split('T')[0];
+  const controleurs = new Set(allData.map(d => d['identification/controleur']).filter(Boolean));
+  const regions     = new Set(allData.map(d => d['identification/region']).filter(Boolean));
+  const zcs         = new Set(allData.map(d => d['identification/n_zc']).filter(Boolean));
+
+  const dates = allData.map(d => d['identification/date_saisie'] || d._submission_time?.split('T')[0]).filter(Boolean).sort();
+  const dateFirst = dates[0], dateLast = dates[dates.length - 1];
+
+  let totalZdVisitees = 0, totalZdAchevees = 0, totalZdAssignees = 0;
+  let zdAcheveesAuj = 0;
+  let totalAgentsPresents = 0, totalNonPayes = 0, totalDesistements = 0, totalMenages = 0;
+
+  allData.forEach(d => {
+    const isToday = (d['identification/date_saisie'] || d._submission_time?.split('T')[0]) === today;
+    totalZdVisitees  += parseInt(d['totaux_zc/total_zd_visitees']  || 0);
+    totalZdAchevees  += parseInt(d['totaux_zc/total_zd_achevees']  || 0);
+    totalZdAssignees += parseInt(d['totaux_zc/total_zd_assignees'] || 0);
+    if (isToday) zdAcheveesAuj += parseInt(d['totaux_zc/total_zd_achevees'] || 0);
+    totalMenages += parseInt(d['totaux_zc/total_menages_zc'] || 0);
+    (d.suivi_zd || []).forEach(zd => {
+      totalAgentsPresents += parseInt(zd['suivi_zd/agents/agents_presents']                     || 0);
+      totalNonPayes       += parseInt(zd['suivi_zd/difficultes/diff_4d/nb_agents_non_payes']    || 0);
+      totalDesistements   += parseInt(zd['suivi_zd/agents/agents_desistements']                 || 0);
+    });
+  });
+
+  const pctAch    = totalZdAssignees > 0 ? (totalZdAchevees / totalZdAssignees * 100).toFixed(1) : 0;
+  const pctAchNum = parseFloat(pctAch);
+
+  // Per-ZC
+  const byZC = {};
+  allData.forEach(d => {
+    const zc = d['identification/n_zc']; if (!zc) return;
+    if (!byZC[zc]) byZC[zc] = { visitees:0, achevees:0, assignees:0, nonPayes:0, desistements:0, region: d['identification/region'] };
+    byZC[zc].visitees  += parseInt(d['totaux_zc/total_zd_visitees']  || 0);
+    byZC[zc].achevees  += parseInt(d['totaux_zc/total_zd_achevees']  || 0);
+    byZC[zc].assignees += parseInt(d['totaux_zc/total_zd_assignees'] || 0);
+    (d.suivi_zd || []).forEach(zd => {
+      byZC[zc].nonPayes     += parseInt(zd['suivi_zd/difficultes/diff_4d/nb_agents_non_payes'] || 0);
+      byZC[zc].desistements += parseInt(zd['suivi_zd/agents/agents_desistements']             || 0);
+    });
+  });
+
+  const sortedZCs = Object.entries(byZC)
+    .sort((a, b) => b[1].nonPayes - a[1].nonPayes || b[1].visitees - a[1].visitees)
+    .slice(0, 8);
+
+  // Appréciation
+  const apprec = { bonne:0, difficile:0, bloquee:0, 'N/A':0 };
+  allData.forEach(d => { const a = d['bilan/appreciation_globale'] || 'N/A'; apprec[a] = (apprec[a] || 0) + 1; });
+
+  // Blocked ZCs
+  const blockedZCs = allData.filter(d => d['bilan/appreciation_globale'] === 'bloquee').map(d => `ZC ${d['identification/n_zc']}`);
+
+  // ── Format helpers ──
+  const fmtDate = s => { if (!s) return '—'; const d = new Date(s + 'T00:00:00'); return d.toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' }); };
+  const fmtShort = s => { if (!s) return '—'; const d = new Date(s + 'T00:00:00'); return d.toLocaleDateString('fr-FR', { day:'numeric', month:'long' }); };
+
+  // ── Banner ──
+  setText('ops-period',     `du ${fmtShort(dateFirst)} au ${fmtDate(dateLast)}`);
+  setText('ops-nb-ctrl',    controleurs.size);
+  setText('ops-nb-regions', regions.size);
+  setText('hdr-ctrl',       controleurs.size);
+  setText('hdr-regions',    regions.size);
+  const now = new Date();
+  setText('hdr-date',       now.toLocaleDateString('fr-FR', { day:'2-digit', month:'short' }));
+  setText('hdr-date-year',  now.getFullYear());
+  setText('ops-report-date', now.toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' }));
+
+  // ── 8 KPIs ──
+  setText('kpi-o-ctrl',      controleurs.size.toLocaleString('fr-FR'));
+  setText('kpi-o-ctrl-sub',  `${regions.size} régions / ${zcs.size} ZC`);
+  setText('kpi-o-zdvis',     totalZdVisitees.toLocaleString('fr-FR'));
+  setText('kpi-o-zdvis-sub', `sur ${allData.length} fiches soumises`);
+  setText('kpi-o-zdach',     totalZdAchevees.toLocaleString('fr-FR'));
+  setText('kpi-o-zdach-sub', `sur ${totalZdAssignees} assignées = ${pctAch}%`);
+  setText('kpi-o-zdauj',     zdAcheveesAuj.toLocaleString('fr-FR'));
+  setText('kpi-o-zdauj-sub', `taux journalier : ${totalZdVisitees > 0 ? (zdAcheveesAuj / totalZdVisitees * 100).toFixed(1) : 0}%`);
+  setText('kpi-o-agents',    totalAgentsPresents.toLocaleString('fr-FR'));
+  setText('kpi-o-agents-sub','déclarés par ZC renseignées');
+  setText('kpi-o-np',        totalNonPayes.toLocaleString('fr-FR'));
+  setText('kpi-o-np-sub',    `sur ${allData.length} rapports reçus`);
+  setText('kpi-o-des',       totalDesistements.toLocaleString('fr-FR'));
+  setText('kpi-o-des-sub',   blockedZCs.length > 0 ? blockedZCs.slice(0,2).join(', ') : 'aucun bloquage');
+  setText('kpi-o-men',       totalMenages.toLocaleString('fr-FR'));
+  setText('kpi-o-men-sub',   'dans les ZD visitées');
+
+  // ── Appréciation des journées ──
+  const apprecCfg = [
+    { key:'bonne',    color:'#16a34a', label:'Bonne journée' },
+    { key:'difficile',color:'#d97706', label:'Difficile'      },
+    { key:'bloquee',  color:'#dc2626', label:'Bloquée'        },
+    { key:'N/A',      color:'#94a3b8', label:'N / A'          }
+  ];
+  const totalApprec = allData.length;
+  let appHtml = '';
+  apprecCfg.forEach(({ key, color, label }) => {
+    const count = apprec[key] || 0;
+    const pct   = totalApprec > 0 ? Math.round(count / totalApprec * 100) : 0;
+    appHtml += `
+      <div class="apprec-bar-item">
+        <div class="apprec-bar-label">
+          <span style="color:${color};font-weight:700">${label}</span>
+          <span style="color:${color}">${count} (${pct}%)</span>
+        </div>
+        <div class="apprec-bar-track">
+          <div class="apprec-bar-fill" style="width:${pct}%;background:${color}"></div>
+        </div>
+      </div>`;
+  });
+  appHtml += `<div class="text-muted mt-2" style="font-size:0.72rem">Sur ${totalApprec} répondants / ${allData.length} fiches soumises</div>`;
+  byId('appreciation-body').innerHTML = appHtml;
+
+  // ── Alertes prioritaires ──
+  let alertHtml = '';
+
+  if (totalNonPayes > 0) {
+    const topNP = Object.entries(byZC)
+      .filter(([, v]) => v.nonPayes > 0)
+      .sort((a, b) => b[1].nonPayes - a[1].nonPayes)
+      .slice(0, 5)
+      .map(([zc, v]) => `ZC ${zc} : ${v.nonPayes}`)
+      .join(' &nbsp;|&nbsp; ');
+    alertHtml += `
+      <div class="alert-item critique">
+        <div class="alert-item-header">
+          <span class="alert-badge critique">P1 CRITIQUE</span>
+          <span class="alert-item-title">${totalNonPayes.toLocaleString('fr-FR')} agents non payés (+${pctAchNum.toFixed(0)}%)</span>
+        </div>
+        <div class="alert-item-detail">${topNP}</div>
+      </div>`;
+  }
+
+  if (blockedZCs.length > 0) {
+    alertHtml += `
+      <div class="alert-item urgent">
+        <div class="alert-item-header">
+          <span class="alert-badge urgent">P1 URGENT</span>
+          <span class="alert-item-title">${blockedZCs.length} ZC bloquée${blockedZCs.length > 1 ? 's' : ''} — intervention urgente &lt;24h</span>
+        </div>
+        <div class="alert-item-detail">${blockedZCs.join(' — ')}</div>
+      </div>`;
+  }
+
+  if (pctAchNum < 30 && totalZdAssignees > 0) {
+    const zeroAch = Object.entries(byZC)
+      .filter(([, v]) => v.achevees === 0 && v.assignees === 0)
+      .slice(0, 5).map(([zc]) => `ZC ${zc}`).join(', ');
+    alertHtml += `
+      <div class="alert-item urgent">
+        <div class="alert-item-header">
+          <span class="alert-badge urgent">P1 URGENT</span>
+          <span class="alert-item-title">Taux d'achèvement ${pctAch}% (${totalZdAchevees}/${totalZdAssignees} ZD)</span>
+        </div>
+        <div class="alert-item-detail">${zeroAch ? 'ZC à 0 ZD achevée : ' + zeroAch : ''}</div>
+      </div>`;
+  }
+
+  const completedZCs = Object.entries(byZC)
+    .filter(([, v]) => v.assignees > 0 && v.achevees >= v.assignees);
+  if (completedZCs.length > 0) {
+    const label = completedZCs.slice(0, 3).map(([zc, v]) => `ZC ${zc} (${v.achevees}/${v.assignees})`).join(' · ');
+    alertHtml += `
+      <div class="alert-item excep">
+        <div class="alert-item-header">
+          <span class="alert-badge excep">EXCEPTIONNEL</span>
+          <span class="alert-item-title">${completedZCs.length} ZC à 100% des ZD achevées !</span>
+        </div>
+        <div class="alert-item-detail">${label}</div>
+      </div>`;
+  }
+
+  if (!alertHtml) alertHtml = '<div class="text-muted small">Aucune alerte critique détectée.</div>';
+
+  alertHtml += `
+    <div class="total-np-note mt-2">
+      <i class="fas fa-exclamation-circle me-1"></i>
+      Total non payés cumulé : <strong>${totalNonPayes.toLocaleString('fr-FR')} agents</strong>
+      &nbsp;|&nbsp; NP = Non payés
+    </div>`;
+  byId('alertes-body').innerHTML = alertHtml;
+
+  // ── Avancement par ZC ──
+  let zcHtml = `<table class="zc-table">
+    <thead><tr>
+      <th>Zone de Contrôle</th>
+      <th>Progression</th>
+      <th class="text-end">Non payés</th>
+    </tr></thead><tbody>`;
+
+  sortedZCs.forEach(([zc, v]) => {
+    const pct    = v.assignees > 0 ? Math.round(v.visitees / v.assignees * 100) : (v.visitees > 0 ? 100 : 0);
+    const barClr = pct >= 100 ? '#16a34a' : pct > 0 ? '#2563eb' : '#94a3b8';
+    const npClass = v.nonPayes > 0 ? 'has-np' : 'ok';
+    const npText  = v.nonPayes > 0 ? `${v.nonPayes} NP` : 'OK';
+    const reg     = REGION_NAMES[v.region] || `R${v.region}`;
+    zcHtml += `<tr>
+      <td><strong>${zc}</strong><span class="zc-region-lbl">${reg}</span></td>
+      <td>
+        <div class="zc-progress">
+          <div class="zc-progress-fill" style="width:${Math.max(pct, v.visitees > 0 ? 6 : 0)}%;background:${barClr}"></div>
+        </div>
+      </td>
+      <td class="text-end"><span class="zc-np-badge ${npClass}">${npText}</span></td>
+    </tr>`;
+  });
+  zcHtml += '</tbody></table>';
+  byId('avancement-body').innerHTML = zcHtml;
+
+  // ── Actions requises ──
+  const actions = [];
+  if (totalNonPayes > 0)
+    actions.push({ num:1, priority:'P1 CRITIQUE', color:'#dc2626',
+      title:`PAIEMENT URGENT — ${totalNonPayes.toLocaleString('fr-FR')} agents non payés`,
+      desc:'Virement immédiat, dérogation SIM', footer:'Coord. Nat. / 24h' });
+
+  if (blockedZCs.length > 0)
+    actions.push({ num:actions.length+1, priority:'P1 URGENT', color:'#d97706',
+      title:`DÉBLOQUER ${blockedZCs.slice(0,3).join(', ')}`,
+      desc:'Contact superviseur + visite terrain', footer:'Sup. Dép. / 24h' });
+
+  if (pctAchNum < 30 && totalZdAssignees > 0)
+    actions.push({ num:actions.length+1, priority:'P1 URGENT', color:'#d97706',
+      title:'OBJECTIFS JOURNALIERS PAR ZC',
+      desc:`Taux actuel ${pctAch}% — sous les objectifs`, footer:'Coord. Nat. / 48h' });
+
+  if (totalDesistements > 0)
+    actions.push({ num:actions.length+1, priority:'P2 ÉLEVÉ', color:'#0891b2',
+      title:`REMPLACER ${totalDesistements} DÉSISTEMENT${totalDesistements > 1 ? 'S' : ''}`,
+      desc:'Mobiliser les réservistes disponibles', footer:'Gest. RH / 24h' });
+
+  while (actions.length < 4)
+    actions.push({ num:actions.length+1, priority:'P2 SUIVI', color:'#64748b',
+      title:'SUIVI RÉGULIER DES DONNÉES',
+      desc:'Contrôle qualité et synchronisation KoboToolbox', footer:'Coord. / 72h' });
+
+  byId('actions-body').innerHTML = actions.slice(0,4).map(a => `
+    <div class="col-12 col-md-6 col-lg-3">
+      <div class="action-card" style="--action-color:${a.color}">
+        <div class="action-card-header">
+          <div class="action-number">${a.num}</div>
+          <span class="action-priority">${a.priority}</span>
+        </div>
+        <div class="action-title">${a.title}</div>
+        <div class="action-desc">${a.desc}</div>
+        <div class="action-footer">${a.footer}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ─── KPI Cards (legacy — conservé pour compatibilité) ─────────────────────
 function renderKPIs() {
   const n        = allData.length;
   const approved = allData.filter(d =>
