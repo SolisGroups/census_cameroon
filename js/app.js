@@ -21,9 +21,100 @@ const COLORS = [
 ];
 
 const REGION_NAMES = {
-  '01':'ADAMAOUA','02':'CENTRE','03':'EST','04':'LITTORAL',
-  '05':'NORD','06':'NORD-OUEST','07':'OUEST','08':'OUEST',
-  '09':'SUD','10':'SUD-OUEST'
+  '01':'Adamaoua','02':'Centre','03':'Est','04':'Extrême-Nord',
+  '05':'Littoral','06':'Nord','07':'Nord-Ouest','08':'Ouest',
+  '09':'Sud','10':'Sud-Ouest'
+};
+
+const DEPT_NAMES = {
+  // Adamaoua (01)
+  '0101':'Djérem','0102':'Faro-et-Déo','0103':'Mayo-Banyo','0104':'Mbéré','0105':'Vina',
+  // Centre (02)
+  '0201':'Haute-Sanaga','0202':'Lekié','0203':'Mbam-et-Inoubou','0204':'Mbam-et-Kim',
+  '0205':'Méfou-et-Afamba','0206':'Méfou-et-Akono','0207':'Mfoundi (Yaoundé)',
+  '0208':'Nyong-et-Kéllé','0209':'Nyong-et-Mfoumou','0210':'Nyong-et-So\'o',
+  // Est (03)
+  '0301':'Boumba-et-Ngoko','0302':'Haut-Nyong','0303':'Kadéï','0304':'Lom-et-Djerem',
+  // Extrême-Nord (04)
+  '0401':'Diamaré (Maroua)','0402':'Logone-et-Chari','0403':'Mayo-Danay',
+  '0404':'Mayo-Kani','0405':'Mayo-Sava','0406':'Mayo-Tsanaga',
+  // Littoral (05)
+  '0501':'Moungo','0502':'Nkam','0503':'Sanaga-Maritime','0504':'Wouri (Douala)',
+  // Nord (06)
+  '0601':'Bénoué (Ngaoundéré)','0602':'Faro','0603':'Mayo-Louti','0604':'Mayo-Rey',
+  // Nord-Ouest (07)
+  '0701':'Boyo','0702':'Bui','0703':'Donga-Mantung','0704':'Menchum',
+  '0705':'Mezam (Bamenda)','0706':'Momo','0707':'Ngo-Ketunjia',
+  // Ouest (08)
+  '0801':'Bamboutos','0802':'Haut-Nkam','0803':'Hauts-Plateaux',
+  '0804':'Koupé-Manengouba','0805':'Menoua','0806':'Mifi (Bafoussam)',
+  '0807':'Ndé','0808':'Noun (Foumban)',
+  // Sud (09)
+  '0901':'Dja-et-Lobo','0902':'Mvila (Ebolowa)','0903':'Océan','0904':'Vallée-du-Ntem',
+  // Sud-Ouest (10)
+  '1001':'Fako (Buea)','1002':'Koupé-Manengouba','1003':'Lebialem',
+  '1004':'Manyu','1005':'Meme','1006':'Ndian'
+};
+
+const ARR_NAMES = {
+  // Mfoundi / Yaoundé
+  '0207001':'Yaoundé I','0207002':'Yaoundé II','0207003':'Yaoundé III',
+  '0207004':'Yaoundé IV','0207005':'Yaoundé V','0207006':'Yaoundé VI','0207007':'Yaoundé VII',
+  // Wouri / Douala
+  '0504001':'Douala I','0504002':'Douala II','0504003':'Douala III',
+  '0504004':'Douala IV','0504005':'Douala V','0504006':'Douala VI'
+};
+
+const FIELD_LABELS = {
+  'identification/region':'Région','identification/departement':'Département',
+  'identification/arrondissement':'Arrondissement','identification/controleur':'Contrôleur',
+  'identification/superviseur':'Superviseur','identification/n_zc':'Zone de Contrôle',
+  'identification/date_saisie':'Date de saisie','bilan/appreciation_globale':'Appréciation globale',
+  'suivi_zd/presence/presence_ce':'Présence Chef d\'Équipe',
+  'suivi_zd/presence/presence_ar':'Présence Agent Recenseur',
+  'suivi_zd/presence/zd_observee':'ZD Observée (terrain)',
+  'suivi_zd/etat_avancement/maj_achevee':'Mise à jour achevée',
+  'suivi_zd/etat_avancement/zd_segmentee':'ZD Segmentée',
+  'suivi_zd/etat_avancement/zd_regroupee':'ZD Regroupée',
+  'suivi_zd/etat_avancement/croquis_valides':'Croquis validés',
+  'suivi_zd/etat_avancement/croquis_num':'Croquis numérisés',
+  'suivi_zd/etat_avancement/donnees_synchro':'Données synchronisées',
+  'suivi_zd/difficultes/diff_4a/diff_mapit':'Difficulté MapIt',
+  'suivi_zd/difficultes/diff_4a/diff_gps':'Difficulté GPS',
+  'suivi_zd/difficultes/diff_4a/diff_reseau':'Problème réseau',
+  'suivi_zd/difficultes/diff_4a/diff_batterie':'Problème batterie',
+  'suivi_zd/difficultes/diff_4a/diff_electricite':'Problème électricité',
+  'suivi_zd/difficultes/diff_4b/diff_acces_phys':'Accès physique difficile',
+  'suivi_zd/difficultes/diff_4b/diff_adhesion':'Problème d\'adhésion population',
+  'suivi_zd/difficultes/diff_4b/diff_menages_absents':'Ménages absents',
+  'suivi_zd/difficultes/diff_4b/diff_refus':'Refus de participation',
+  'suivi_zd/difficultes/diff_4b/diff_rumeurs':'Rumeurs négatives',
+  'suivi_zd/difficultes/diff_4b/diff_langue':'Barrière linguistique',
+  'suivi_zd/difficultes/diff_4b/diff_leaders':'Problème leaders communautaires',
+  'suivi_zd/difficultes/diff_4c/diff_zone_dang':'Zone dangereuse',
+  'suivi_zd/difficultes/diff_4c/diff_menaces':'Menaces reçues',
+  'suivi_zd/difficultes/diff_4c/diff_incident':'Incident sécuritaire',
+  'suivi_zd/difficultes/diff_4c/diff_deplacement':'Problème déplacement',
+  'suivi_zd/difficultes/diff_4d/frais_verses':'Frais versés aux agents',
+  'suivi_zd/difficultes/diff_4d/retard_formation':'Retard paiement formation',
+  'suivi_zd/difficultes/diff_4d/retard_transport':'Retard paiement transport',
+  'suivi_zd/difficultes/diff_4d/retard_salaire':'Retard salaire / perdiem',
+  'suivi_zd/difficultes/diff_4d/impact_retard':'Impact du retard de paiement',
+  'suivi_zd/difficultes/diff_4d/desistement_paiem':'Désistement lié au paiement',
+  'suivi_zd/difficultes/diff_4d/maladie_sans_remplac':'Maladie sans remplacement',
+  'suivi_zd/difficultes/diff_4d/insuffisance_reserv':'Insuffisance de réservistes',
+  'suivi_zd/difficultes/diff_4e/diff_materiel':'Matériel insuffisant',
+  'suivi_zd/difficultes/diff_4e/diff_transport_zd':'Transport vers ZD difficile',
+  'suivi_zd/difficultes/diff_4e/diff_voie':'Mauvais état des voies',
+  'suivi_zd/difficultes/diff_4e/diff_autre':'Autre difficulté',
+  '_validation_status':'Statut de validation'
+};
+
+const VALUE_LABELS = {
+  'oui':'Oui ✓','non':'Non ✗',
+  'bonne':'Bonne journée','difficile':'Difficile','bloquee':'Bloquée',
+  'validation_status_approved':'Approuvé','validation_status_not_approved':'Non approuvé',
+  'validation_status_on_review':'En révision'
 };
 
 // ─── État ────────────────────────────────────────────────────────────────
@@ -464,9 +555,14 @@ function renderTrendChart() {
       interaction: { mode: 'index', intersect: false },
       plugins: { legend: { labels: { font: { size: 11 }, boxWidth: 14 } } },
       scales: {
-        x:  { grid: { display: false }, ticks: { maxTicksLimit: 12, font: { size: 10 } } },
-        y:  { position: 'left',  beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 10 } } },
-        y2: { position: 'right', beginAtZero: true, grid: { display: false },             ticks: { font: { size: 10 } } }
+        x:  { grid: { display: false }, ticks: { maxTicksLimit: 12, font: { size: 10 } },
+              title: { display: true, text: 'Date de soumission', font: { size: 10 } } },
+        y:  { position: 'left',  beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' },
+              ticks: { font: { size: 10 } },
+              title: { display: true, text: 'Fiches / jour', font: { size: 10 } } },
+        y2: { position: 'right', beginAtZero: true, grid: { display: false },
+              ticks: { font: { size: 10 } },
+              title: { display: true, text: 'Total cumulé', font: { size: 10 } } }
       }
     }
   });
@@ -517,15 +613,22 @@ function renderBarChart(canvasId, headerId, fieldName) {
   chartRefs[canvasId] = new Chart(byId(canvasId), {
     type: 'bar',
     data: {
-      labels: sorted.map(([k]) => shortLabel(k)),
+      labels: sorted.map(([k]) => shortLabel(friendlyValue(fieldName, k))),
       datasets: [{ data: sorted.map(([, v]) => v), backgroundColor: COLORS, borderRadius: 4 }]
     },
     options: {
       responsive: true,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          title: ctx => friendlyValue(fieldName, sorted[ctx[0].dataIndex][0]),
+          label: ctx => ` ${ctx.raw.toLocaleString('fr-FR')} soumissions`
+        }}
+      },
       scales: {
         x: { grid: { display: false }, ticks: { maxRotation: 40, font: { size: 10 } } },
-        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }
+        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' },
+             title: { display: true, text: 'Nombre de fiches', font: { size: 10 } } }
       }
     }
   });
@@ -535,13 +638,34 @@ function renderBarChart(canvasId, headerId, fieldName) {
 function buildFieldSelector() {
   const sel    = byId('fieldSelector');
   const mapSel = byId('mapFieldSelect');
-  sel.innerHTML    = '';
+  sel.innerHTML    = '<option value="">— Choisissez un indicateur à analyser —</option>';
   mapSel.innerHTML = '<option value="">— Couleur par —</option>';
 
-  detectCategoricalFields(60).forEach(f => {
-    const lbl = friendlyLabel(f);
-    sel.insertAdjacentHTML('beforeend',    `<option value="${f}">${lbl}</option>`);
-    mapSel.insertAdjacentHTML('beforeend', `<option value="${f}">${lbl}</option>`);
+  // Prioritize known fields first, then auto-detected
+  const known = Object.keys(FIELD_LABELS);
+  const auto  = detectCategoricalFields(60);
+  const ordered = [...new Set([...known.filter(k => auto.includes(k)), ...auto])];
+
+  // Group by category
+  const groups = {
+    'Géographie':  ['identification/region','identification/departement','identification/arrondissement'],
+    'Organisation':['identification/n_zc','identification/controleur','identification/superviseur'],
+    'Bilan':       ['bilan/appreciation_globale'],
+    'Avancement ZD':  auto.filter(f => f.includes('etat_avancement')),
+    'Difficultés':    auto.filter(f => f.includes('difficultes')),
+    'Autres':         ordered.filter(f => !f.includes('identification') && !f.includes('bilan') && !f.includes('etat_avancement') && !f.includes('difficultes'))
+  };
+
+  Object.entries(groups).forEach(([grpLabel, fields]) => {
+    const validFields = fields.filter(f => auto.includes(f));
+    if (!validFields.length) return;
+    sel.insertAdjacentHTML('beforeend', `<optgroup label="── ${grpLabel} ──">`);
+    validFields.forEach(f => {
+      const lbl = friendlyLabel(f);
+      sel.insertAdjacentHTML('beforeend', `<option value="${f}">${lbl}</option>`);
+      mapSel.insertAdjacentHTML('beforeend', `<option value="${f}">${lbl}</option>`);
+    });
+    sel.insertAdjacentHTML('beforeend', '</optgroup>');
   });
 
   byId('fieldSelector').addEventListener('change', renderStatsForField);
@@ -559,6 +683,18 @@ function renderStatsForField() {
   const area    = byId('statsArea');
   area.innerHTML = '';
 
+  // Description contextuelle du champ
+  const fieldDesc = FIELD_LABELS[field]
+    ? `Répartition des ${allData.length} fiches selon : <strong>${label}</strong>`
+    : `Analyse du champ <strong>${label}</strong> sur ${allData.length} soumissions`;
+  area.insertAdjacentHTML('beforeend', `
+    <div class="col-12">
+      <div class="alert alert-light border py-2 px-3 mb-0" style="font-size:0.82rem">
+        <i class="fas fa-info-circle text-primary me-2"></i>${fieldDesc}
+        &nbsp;—&nbsp; <span class="text-muted">${Object.keys(counts).length} valeurs distinctes · ${total.toLocaleString('fr-FR')} réponses</span>
+      </div>
+    </div>`);
+
   // Tableau résumé
   area.insertAdjacentHTML('beforeend', `
     <div class="col-12 col-lg-4">
@@ -567,12 +703,12 @@ function renderStatsForField() {
         <div class="dash-card-body p-0">
           <table class="table table-sm table-hover mb-0">
             <thead class="table-light">
-              <tr><th>Valeur</th><th class="text-end">N</th><th class="text-end">%</th></tr>
+              <tr><th>${label}</th><th class="text-end">Fiches</th><th class="text-end">%</th></tr>
             </thead>
             <tbody>
               ${entries.map(([k, v]) => `
                 <tr>
-                  <td><span title="${k}">${shortLabel(k) || '(vide)'}</span></td>
+                  <td><span title="${k}">${shortLabel(friendlyValue(field, k)) || '(vide)'}</span></td>
                   <td class="text-end fw-semibold">${v.toLocaleString('fr-FR')}</td>
                   <td class="text-end text-muted">${Math.round(v / total * 100)}%</td>
                 </tr>`).join('')}
@@ -587,7 +723,7 @@ function renderStatsForField() {
   area.insertAdjacentHTML('beforeend', `
     <div class="col-12 col-lg-8">
       <div class="dash-card h-100">
-        <div class="dash-card-header"><i class="fas fa-chart-bar me-2 text-info"></i>${label} — Distribution</div>
+        <div class="dash-card-header"><i class="fas fa-chart-bar me-2 text-info"></i>Nombre de fiches par ${label}</div>
         <div class="dash-card-body"><canvas id="${barId}"></canvas></div>
       </div>
     </div>`);
@@ -597,7 +733,7 @@ function renderStatsForField() {
   area.insertAdjacentHTML('beforeend', `
     <div class="col-12 col-md-5">
       <div class="dash-card">
-        <div class="dash-card-header"><i class="fas fa-chart-pie me-2 text-success"></i>${label} — Proportions</div>
+        <div class="dash-card-header"><i class="fas fa-chart-pie me-2 text-success"></i>Proportions — ${label}</div>
         <div class="dash-card-body d-flex justify-content-center">
           <canvas id="${donutId}" style="max-height:280px"></canvas>
         </div>
@@ -609,25 +745,33 @@ function renderStatsForField() {
   area.insertAdjacentHTML('beforeend', `
     <div class="col-12 col-md-7">
       <div class="dash-card">
-        <div class="dash-card-header"><i class="fas fa-sort-amount-down me-2 text-warning"></i>${label} — Classement</div>
+        <div class="dash-card-header"><i class="fas fa-sort-amount-down me-2 text-warning"></i>Classement — ${label}</div>
         <div class="dash-card-body"><canvas id="${hbarId}"></canvas></div>
       </div>
     </div>`);
 
   // Remplissage des graphiques
   const top12 = topN(counts, 12);
+  const fvShort = k => shortLabel(friendlyValue(field, k));
   new Chart(byId(barId), {
     type: 'bar',
     data: {
-      labels: top12.map(([k]) => shortLabel(k)),
+      labels: top12.map(([k]) => fvShort(k)),
       datasets: [{ data: top12.map(([, v]) => v), backgroundColor: COLORS, borderRadius: 4 }]
     },
     options: {
       responsive: true,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          title: ctx => friendlyValue(field, top12[ctx[0].dataIndex][0]),
+          label: ctx => ` ${ctx.raw.toLocaleString('fr-FR')} fiche(s) — ${Math.round(ctx.raw/total*100)}%`
+        }}
+      },
       scales: {
         x: { grid: { display: false }, ticks: { maxRotation: 45, font: { size: 10 } } },
-        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }
+        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' },
+             title: { display: true, text: 'Nombre de fiches soumises', font: { size: 10 } } }
       }
     }
   });
@@ -636,29 +780,41 @@ function renderStatsForField() {
   new Chart(byId(donutId), {
     type: 'doughnut',
     data: {
-      labels: top8.map(([k]) => shortLabel(k)),
+      labels: top8.map(([k]) => fvShort(k)),
       datasets: [{ data: top8.map(([, v]) => v), backgroundColor: COLORS,
                    borderWidth: 2, borderColor: '#fff', hoverOffset: 8 }]
     },
     options: {
       responsive: true, cutout: '60%',
-      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } } }
-    }
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12, padding: 8 } },
+        tooltip: { callbacks: {
+          title: ctx => friendlyValue(field, top8[ctx[0].dataIndex][0]),
+          label: ctx => ` ${ctx.raw.toLocaleString('fr-FR')} fiche(s) — ${Math.round(ctx.raw/total*100)}%`
+        }}
+      }
   });
 
   const top10rev = topN(counts, 10).reverse();
   new Chart(byId(hbarId), {
     type: 'bar',
     data: {
-      labels: top10rev.map(([k]) => shortLabel(k)),
+      labels: top10rev.map(([k]) => fvShort(k)),
       datasets: [{ data: top10rev.map(([, v]) => v), backgroundColor: COLORS[0], borderRadius: 4 }]
     },
     options: {
       indexAxis: 'y', responsive: true,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          title: ctx => friendlyValue(field, top10rev[ctx[0].dataIndex][0]),
+          label: ctx => ` ${ctx.raw.toLocaleString('fr-FR')} fiche(s) — ${Math.round(ctx.raw/total*100)}%`
+        }}
+      },
       scales: {
-        x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
-        y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+        x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' },
+             title: { display: true, text: 'Nombre de fiches', font: { size: 10 } } },
+        y: { grid: { display: false }, ticks: { font: { size: 10 } } }
       }
     }
   });
@@ -954,10 +1110,27 @@ function topN(counts, n) {
 }
 
 function friendlyLabel(field) {
+  if (FIELD_LABELS[field]) return FIELD_LABELS[field];
   return field.split('/').pop().replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function friendlyValue(field, value) {
+  if (value == null || value === '') return '(vide)';
+  const v = String(value);
+  if (VALUE_LABELS[v]) return VALUE_LABELS[v];
+  if (field && field.includes('region'))
+    return REGION_NAMES[v] ? `${REGION_NAMES[v]}` : `Région ${v}`;
+  if (field && field.includes('departement'))
+    return DEPT_NAMES[v] || `Département ${v}`;
+  if (field && field.includes('arrondissement')) {
+    if (ARR_NAMES[v]) return ARR_NAMES[v];
+    const dept = DEPT_NAMES[v.slice(0, 4)];
+    return dept ? `${dept.split(' (')[0]} – Arr. ${parseInt(v.slice(4))}` : `Arr. ${v}`;
+  }
+  return v;
 }
 
 function shortLabel(str) {
   if (!str) return '(vide)';
-  return String(str).length > 22 ? String(str).slice(0, 20) + '…' : String(str);
+  return String(str).length > 26 ? String(str).slice(0, 24) + '…' : String(str);
 }
