@@ -32,11 +32,11 @@
       null
     ],
     "columns": [
-      "type",
+      "hint",
       "name",
+      "type",
       "label",
       "required",
-      "hint",
       "select_from_list_name",
       "relevant",
       "choice_filter",
@@ -63,18 +63,25 @@
     "default_translation": "French (fr)"
   },
   "date_created": "2026-04-30T22:09:43.160497Z",
-  "date_modified": "2026-05-03T18:51:49.066157Z",
-  "date_deployed": "2026-05-02T17:29:50.685793Z",
+  "date_modified": "2026-05-04T10:47:30.485536Z",
+  "date_deployed": "2026-05-04T10:47:30.484612Z",
   "version_id": "vHWMt2M2vtECThUVDCxBYH",
   "version__content_hash": "9f3557e54b3e0e139af5662e8732d1cd7fefff52",
   "version_count": 19,
   "has_deployment": true,
-  "deployed_version_id": "vYqySQRHpR5mPP4k8Eyo8p",
+  "deployed_version_id": "vHWMt2M2vtECThUVDCxBYH",
   "deployed_versions": {
-    "count": 9,
+    "count": 10,
     "next": null,
     "previous": null,
     "results": [
+      {
+        "uid": "vHWMt2M2vtECThUVDCxBYH",
+        "url": "https://kf.kobotoolbox.org/api/v2/assets/aaoCZKsTPkLeLhdB6wDXdW/versions/vHWMt2M2vtECThUVDCxBYH/?format=json",
+        "content_hash": "9f3557e54b3e0e139af5662e8732d1cd7fefff52",
+        "date_deployed": "2026-05-04T10:47:30.473006Z",
+        "date_modified": "2026-05-04T10:47:30.473006Z"
+      },
       {
         "uid": "vYqySQRHpR5mPP4k8Eyo8p",
         "url": "https://kf.kobotoolbox.org/api/v2/assets/aaoCZKsTPkLeLhdB6wDXdW/versions/vYqySQRHpR5mPP4k8Eyo8p/?format=json",
@@ -10003,31 +10010,31 @@
   ],
   "effective_permissions": [
     {
-      "codename": "delete_submissions"
-    },
-    {
-      "codename": "view_submissions"
-    },
-    {
-      "codename": "add_submissions"
+      "codename": "validate_submissions"
     },
     {
       "codename": "change_asset"
     },
     {
-      "codename": "delete_asset"
+      "codename": "delete_submissions"
     },
     {
       "codename": "manage_asset"
     },
     {
-      "codename": "change_submissions"
-    },
-    {
       "codename": "view_asset"
     },
     {
-      "codename": "validate_submissions"
+      "codename": "change_submissions"
+    },
+    {
+      "codename": "delete_asset"
+    },
+    {
+      "codename": "add_submissions"
+    },
+    {
+      "codename": "view_submissions"
     }
   ],
   "exports": "https://kf.kobotoolbox.org/api/v2/assets/aaoCZKsTPkLeLhdB6wDXdW/exports/?format=json",
