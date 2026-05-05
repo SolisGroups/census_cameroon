@@ -231,6 +231,7 @@ function renderOperationalDashboard() {
   if (!allData.length) return;
 
   const isOui = v => v === 'oui' || v === '1' || v === 'yes' || v === true;
+  const toInt = v => parseInt(v || 0) || 0;
 
   const today = new Date().toISOString().split('T')[0];
   const controleurs = new Set(allData.map(d => d['identification/controleur'] || d['identification/n_controleur']).filter(Boolean));
@@ -240,22 +241,66 @@ function renderOperationalDashboard() {
   const dates = allData.map(d => d['identification/date_saisie'] || d._submission_time?.split('T')[0]).filter(Boolean).sort();
   const dateFirst = dates[0], dateLast = dates[dates.length - 1];
 
-  // ── Compteurs niveau fiche (totaux_zc) ──
-  let totalZdVisitees = 0, totalZdAchevees = 0, totalZdAssignees = 0;
+  // ══════════════════════════════════════════════════════════════════════════
+  // ÉTAPE 1 — Déduplication par ZC
+  // Une ZC peut être soumise plusieurs fois (ZC 022 x3, ZC 100 x2, ZC 047 x2).
+  // Pour les totaux ZC (assignées, visitées, achevées), on prend la DERNIÈRE
+  // soumission par ZC (évite le double-comptage).
+  // Pour les lignes suivi_zd, on CUMULE toutes les soumissions de la ZC car
+  // chaque soumission couvre des ZD différentes.
+  // ══════════════════════════════════════════════════════════════════════════
+  const latestByZC = {};   // dernière soumission par ZC (pour totaux_zc)
+  allData.forEach(d => {
+    const zc   = d['identification/n_zc']; if (!zc) return;
+    const date = d['identification/date_saisie'] || d._submission_time?.split('T')[0] || '';
+    if (!latestByZC[zc] || date >= (latestByZC[zc]._date || '')) {
+      latestByZC[zc] = { ...d, _date: date };
+    }
+  });
+  const dedupedData = Object.values(latestByZC); // une fiche par ZC
+
+  // ── Totaux ZC depuis la dernière soumission par ZC (sans double-comptage) ──
+  let totalZdAssignees = 0, totalZdVisitees = 0, totalZdAchevees = 0;
   let totalZdSegmentees = 0, totalZdRegroupees = 0, totalZdCroquis = 0;
   let zdAcheveesAuj = 0;
-  allData.forEach(d => {
+  dedupedData.forEach(d => {
     const isToday = (d['identification/date_saisie'] || d._submission_time?.split('T')[0]) === today;
-    totalZdVisitees    += parseInt(d['totaux_zc/total_zd_visitees']   || 0);
-    totalZdAchevees    += parseInt(d['totaux_zc/total_zd_achevees']   || 0);
-    totalZdAssignees   += parseInt(d['totaux_zc/total_zd_assignees']  || 0);
-    totalZdSegmentees  += parseInt(d['totaux_zc/total_zd_segmentees'] || 0);
-    totalZdRegroupees  += parseInt(d['totaux_zc/total_zd_regroupees'] || 0);
-    totalZdCroquis     += parseInt(d['totaux_zc/total_zd_croquis']    || 0);
-    if (isToday) zdAcheveesAuj += parseInt(d['totaux_zc/total_zd_achevees'] || 0);
+    totalZdAssignees  += toInt(d['totaux_zc/total_zd_assignees']);
+    totalZdVisitees   += toInt(d['totaux_zc/total_zd_visitees']);
+    totalZdAchevees   += toInt(d['totaux_zc/total_zd_achevees']);
+    totalZdSegmentees += toInt(d['totaux_zc/total_zd_segmentees']);
+    totalZdRegroupees += toInt(d['totaux_zc/total_zd_regroupees']);
+    totalZdCroquis    += toInt(d['totaux_zc/total_zd_croquis']);
+    if (isToday) zdAcheveesAuj += toInt(d['totaux_zc/total_zd_achevees']);
   });
 
-  // ── Compteurs niveau ZD (suivi_zd) ──
+  // ══════════════════════════════════════════════════════════════════════════
+  // ÉTAPE 2 — Comptage depuis suivi_zd (toutes soumissions cumulées)
+  // Pour les ZC sans totaux_zc renseignés, on compte les ZD depuis suivi_zd.
+  // Pour les ZC avec totaux_zc, on garde ces valeurs (plus fiables).
+  // ══════════════════════════════════════════════════════════════════════════
+  const zcsAvecTotauxZC = new Set(
+    dedupedData.filter(d => toInt(d['totaux_zc/total_zd_visitees']) > 0 ||
+                            toInt(d['totaux_zc/total_zd_achevees']) > 0)
+               .map(d => d['identification/n_zc'])
+  );
+
+  // Pour les ZC SANS totaux_zc : compter depuis suivi_zd (uniquement la dernière soumission par ZC)
+  let zdVisiteesEstim = 0, zdAcheveesEstim = 0;
+  dedupedData.forEach(d => {
+    const zc = d['identification/n_zc']; if (!zc) return;
+    if (!zcsAvecTotauxZC.has(zc)) {
+      (d.suivi_zd || []).forEach(zd => {
+        if (isOui(zd['suivi_zd/presence/presence_ce']) || isOui(zd['suivi_zd/presence/presence_ar'])) zdVisiteesEstim++;
+        if (isOui(zd['suivi_zd/etat_avancement/maj_achevee'])) zdAcheveesEstim++;
+      });
+    }
+  });
+  // Totaux combinés (totaux_zc fiables + estimation suivi_zd pour le reste)
+  const totalZdVisiteesTot = totalZdVisitees + zdVisiteesEstim;
+  const totalZdAcheveesTot = totalZdAchevees + zdAcheveesEstim;
+
+  // ── Compteurs niveau ZD (toutes soumissions cumulées) ──
   let totalMenages = 0, totalMenagesAgric = 0;
   let totalAgentsPrevus = 0, totalAgentsPresents = 0, totalAgentsAbsents = 0;
   let totalAgentsMalades = 0, totalDesistements = 0, totalReservistes = 0;
@@ -268,54 +313,73 @@ function renderOperationalDashboard() {
   allData.forEach(d => {
     (d.suivi_zd || []).forEach(zd => {
       zdCount++;
-      totalMenages        += parseInt(zd['suivi_zd/menages/nb_menages']                              || 0);
-      totalMenagesAgric   += parseInt(zd['suivi_zd/menages/nb_menages_agric']                        || 0);
-      totalAgentsPrevus   += parseInt(zd['suivi_zd/agents/agents_prevus']                            || 0);
-      totalAgentsPresents += parseInt(zd['suivi_zd/agents/agents_presents']                          || 0);
-      totalAgentsAbsents  += parseInt(zd['suivi_zd/agents/agents_absents']                           || 0);
-      totalAgentsMalades  += parseInt(zd['suivi_zd/agents/agents_malades']                           || 0);
-      totalDesistements   += parseInt(zd['suivi_zd/agents/agents_desistements']                      || 0);
-      totalReservistes    += parseInt(zd['suivi_zd/agents/agents_reservistes']                       || 0);
-      totalNonPayes       += parseInt(zd['suivi_zd/difficultes/diff_4d/nb_agents_non_payes']         || 0);
-      if (isOui(zd['suivi_zd/etat_avancement/maj_achevee']))      majAchevee++;
-      if (isOui(zd['suivi_zd/etat_avancement/donnees_synchro']))  donneesSync++;
-      if (isOui(zd['suivi_zd/etat_avancement/croquis_valides']))  croquis++;
-      if (isOui(zd['suivi_zd/presence/presence_ce']))              presenceCE++;
-      if (isOui(zd['suivi_zd/presence/presence_ar']))              presenceAR++;
-      if (isOui(zd['suivi_zd/difficultes/diff_4a/diff_mapit']))        diffMapIt++;
-      if (isOui(zd['suivi_zd/difficultes/diff_4a/diff_gps']))          diffGPS++;
-      if (isOui(zd['suivi_zd/difficultes/diff_4a/diff_reseau']))       diffReseau++;
-      if (isOui(zd['suivi_zd/difficultes/diff_4a/diff_batterie']))     diffBatterie++;
-      if (isOui(zd['suivi_zd/difficultes/diff_4a/diff_electricite'])) diffElec++;
-      if (isOui(zd['suivi_zd/difficultes/diff_4b/diff_acces_phys']))   diffAcces++;
-      if (isOui(zd['suivi_zd/difficultes/diff_4b/diff_adhesion']))     diffAdhesion++;
+      totalMenages        += toInt(zd['suivi_zd/menages/nb_menages']);
+      totalMenagesAgric   += toInt(zd['suivi_zd/menages/nb_menages_agric']);
+      totalAgentsPrevus   += toInt(zd['suivi_zd/agents/agents_prevus']);
+      totalAgentsPresents += toInt(zd['suivi_zd/agents/agents_presents']);
+      totalAgentsAbsents  += toInt(zd['suivi_zd/agents/agents_absents']);
+      totalAgentsMalades  += toInt(zd['suivi_zd/agents/agents_malades']);
+      totalDesistements   += toInt(zd['suivi_zd/agents/agents_desistements']);
+      totalReservistes    += toInt(zd['suivi_zd/agents/agents_reservistes']);
+      totalNonPayes       += toInt(zd['suivi_zd/difficultes/diff_4d/nb_agents_non_payes']);
+      if (isOui(zd['suivi_zd/etat_avancement/maj_achevee']))           majAchevee++;
+      if (isOui(zd['suivi_zd/etat_avancement/donnees_synchro']))       donneesSync++;
+      if (isOui(zd['suivi_zd/etat_avancement/croquis_valides']))       croquis++;
+      if (isOui(zd['suivi_zd/presence/presence_ce']))                   presenceCE++;
+      if (isOui(zd['suivi_zd/presence/presence_ar']))                   presenceAR++;
+      if (isOui(zd['suivi_zd/difficultes/diff_4a/diff_mapit']))         diffMapIt++;
+      if (isOui(zd['suivi_zd/difficultes/diff_4a/diff_gps']))           diffGPS++;
+      if (isOui(zd['suivi_zd/difficultes/diff_4a/diff_reseau']))        diffReseau++;
+      if (isOui(zd['suivi_zd/difficultes/diff_4a/diff_batterie']))      diffBatterie++;
+      if (isOui(zd['suivi_zd/difficultes/diff_4a/diff_electricite']))   diffElec++;
+      if (isOui(zd['suivi_zd/difficultes/diff_4b/diff_acces_phys']))    diffAcces++;
+      if (isOui(zd['suivi_zd/difficultes/diff_4b/diff_adhesion']))      diffAdhesion++;
       if (isOui(zd['suivi_zd/difficultes/diff_4b/diff_menages_absents'])) diffMenagesAbs++;
-      if (isOui(zd['suivi_zd/difficultes/diff_4b/diff_refus']))        diffRefus++;
-      if (isOui(zd['suivi_zd/difficultes/diff_4b/diff_langue']))       diffLangue++;
+      if (isOui(zd['suivi_zd/difficultes/diff_4b/diff_refus']))         diffRefus++;
+      if (isOui(zd['suivi_zd/difficultes/diff_4b/diff_langue']))        diffLangue++;
     });
   });
 
   // ── Taux calculés ──
-  const pctAch    = totalZdAssignees > 0 ? (totalZdAchevees  / totalZdAssignees  * 100).toFixed(1) : 0;
-  const pctVis    = totalZdAssignees > 0 ? (totalZdVisitees   / totalZdAssignees  * 100).toFixed(1) : 0;
+  const pctAch    = totalZdAssignees > 0 ? (totalZdAcheveesTot / totalZdAssignees * 100).toFixed(1) : 0;
+  const pctVis    = totalZdAssignees > 0 ? (totalZdVisiteesTot / totalZdAssignees * 100).toFixed(1) : 0;
   const pctAchNum = parseFloat(pctAch);
   const pctMaj    = zdCount > 0 ? (majAchevee   / zdCount * 100).toFixed(0) : 0;
   const pctSync   = zdCount > 0 ? (donneesSync  / zdCount * 100).toFixed(0) : 0;
   const pctPres   = totalAgentsPrevus > 0 ? (totalAgentsPresents / totalAgentsPrevus * 100).toFixed(0) : 0;
   const pctAgric  = totalMenages > 0 ? (totalMenagesAgric / totalMenages * 100).toFixed(1) : 0;
 
-  // ── Per-ZC ──
+  // ══════════════════════════════════════════════════════════════════════════
+  // ÉTAPE 3 — Tableau par ZC (déduplication : une entrée par ZC)
+  // Totaux_zc = dernière soumission ; suivi_zd = cumulé toutes soumissions
+  // ══════════════════════════════════════════════════════════════════════════
   const byZC = {};
-  allData.forEach(d => {
+  // Initialiser depuis la dernière soumission par ZC
+  dedupedData.forEach(d => {
     const zc = d['identification/n_zc']; if (!zc) return;
-    if (!byZC[zc]) byZC[zc] = { visitees:0, achevees:0, assignees:0, nonPayes:0, desistements:0, menages:0, region: d['identification/region'] };
-    byZC[zc].visitees  += parseInt(d['totaux_zc/total_zd_visitees']  || 0);
-    byZC[zc].achevees  += parseInt(d['totaux_zc/total_zd_achevees']  || 0);
-    byZC[zc].assignees += parseInt(d['totaux_zc/total_zd_assignees'] || 0);
+    byZC[zc] = {
+      visitees      : toInt(d['totaux_zc/total_zd_visitees']),
+      achevees      : toInt(d['totaux_zc/total_zd_achevees']),
+      assignees     : toInt(d['totaux_zc/total_zd_assignees']),
+      nonPayes      : 0,
+      desistements  : 0,
+      menages       : 0,
+      presences     : 0,
+      region        : d['identification/region'],
+    };
+  });
+  // Agréger les ZD depuis la dernière soumission par ZC (déjà dans dedupedData)
+  dedupedData.forEach(d => {
+    const zc = d['identification/n_zc']; if (!zc || !byZC[zc]) return;
     (d.suivi_zd || []).forEach(zd => {
-      byZC[zc].nonPayes     += parseInt(zd['suivi_zd/difficultes/diff_4d/nb_agents_non_payes'] || 0);
-      byZC[zc].desistements += parseInt(zd['suivi_zd/agents/agents_desistements']             || 0);
-      byZC[zc].menages      += parseInt(zd['suivi_zd/menages/nb_menages']                     || 0);
+      byZC[zc].nonPayes     += toInt(zd['suivi_zd/difficultes/diff_4d/nb_agents_non_payes']);
+      byZC[zc].desistements += toInt(zd['suivi_zd/agents/agents_desistements']);
+      byZC[zc].menages      += toInt(zd['suivi_zd/menages/nb_menages']);
+      // Estimer les ZD visitées si totaux_zc absent
+      if (!zcsAvecTotauxZC.has(zc)) {
+        if (isOui(zd['suivi_zd/presence/presence_ce']) || isOui(zd['suivi_zd/presence/presence_ar'])) byZC[zc].visitees++;
+        if (isOui(zd['suivi_zd/etat_avancement/maj_achevee'])) byZC[zc].achevees++;
+      }
     });
   });
 
@@ -348,9 +412,9 @@ function renderOperationalDashboard() {
   // ── 8 KPIs ──
   setText('kpi-o-ctrl',      controleurs.size.toLocaleString('fr-FR'));
   setText('kpi-o-ctrl-sub',  `${regions.size} région${regions.size>1?'s':''} · ${zcs.size} ZC · ${allData.length} fiches`);
-  setText('kpi-o-zdvis',     totalZdVisitees.toLocaleString('fr-FR'));
+  setText('kpi-o-zdvis',     totalZdVisiteesTot.toLocaleString('fr-FR'));
   setText('kpi-o-zdvis-sub', `${pctVis}% des ${totalZdAssignees} ZD assignées`);
-  setText('kpi-o-zdach',     totalZdAchevees.toLocaleString('fr-FR'));
+  setText('kpi-o-zdach',     totalZdAcheveesTot.toLocaleString('fr-FR'));
   setText('kpi-o-zdach-sub', `${pctAch}% achèvement · ${totalZdAssignees} assignées`);
   setText('kpi-o-zdauj',     zdAcheveesAuj.toLocaleString('fr-FR'));
   setText('kpi-o-zdauj-sub', `MAJ achevée : ${majAchevee}/${zdCount} ZD (${pctMaj}%)`);
@@ -450,7 +514,7 @@ function renderOperationalDashboard() {
       <div class="alert-item urgent">
         <div class="alert-item-header">
           <span class="alert-badge urgent">P1 URGENT</span>
-          <span class="alert-item-title">Taux d'achèvement ${pctAch}% (${totalZdAchevees}/${totalZdAssignees} ZD)</span>
+          <span class="alert-item-title">Taux d'achèvement ${pctAch}% (${totalZdAcheveesTot}/${totalZdAssignees} ZD)</span>
         </div>
         <div class="alert-item-detail">${zeroAch ? 'ZC à 0 ZD achevée : ' + zeroAch : ''}</div>
       </div>`;
@@ -564,7 +628,7 @@ function renderOperationalDashboard() {
   if (pctAchNum < 30 && totalZdAssignees > 0)
     actions.push({ num:actions.length+1, priority:'P1 URGENT', color:'#d97706',
       title:'OBJECTIFS JOURNALIERS PAR ZC',
-      desc:`Taux actuel ${pctAch}% — sous les objectifs`, footer:'Coord. Nat. / 48h' });
+      desc:`Taux actuel ${pctAch}% (${totalZdAcheveesTot}/${totalZdAssignees} ZD) — sous les objectifs`, footer:'Coord. Nat. / 48h' });
 
   if (totalDesistements > 0)
     actions.push({ num:actions.length+1, priority:'P2 ÉLEVÉ', color:'#0891b2',
