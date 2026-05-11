@@ -262,16 +262,37 @@ function renderOperationalDashboard() {
   // ── Totaux ZC depuis la dernière soumission par ZC (sans double-comptage) ──
   let totalZdAssignees = 0, totalZdVisitees = 0, totalZdAchevees = 0;
   let totalZdSegmentees = 0, totalZdRegroupees = 0, totalZdCroquis = 0;
-  let zdAcheveesAuj = 0;
   dedupedData.forEach(d => {
-    const isToday = (d['identification/date_saisie'] || d._submission_time?.split('T')[0]) === today;
     totalZdAssignees  += toInt(d['totaux_zc/total_zd_assignees']);
     totalZdVisitees   += toInt(d['totaux_zc/total_zd_visitees']);
     totalZdAchevees   += toInt(d['totaux_zc/total_zd_achevees']);
     totalZdSegmentees += toInt(d['totaux_zc/total_zd_segmentees']);
     totalZdRegroupees += toInt(d['totaux_zc/total_zd_regroupees']);
     totalZdCroquis    += toInt(d['totaux_zc/total_zd_croquis']);
-    if (isToday) zdAcheveesAuj += toInt(d['totaux_zc/total_zd_achevees']);
+  });
+
+  // ── ZD achevées lors du dernier jour actif (dernière date avec des achèvements) ──
+  // BUG CORRIGÉ : ne pas comparer avec "aujourd'hui" (page statique, data figée)
+  // → chercher la dernière date avec au moins 1 ZD achevée
+  const datesAvecAch = allData
+    .filter(d => toInt(d['totaux_zc/total_zd_achevees']) > 0 ||
+                 (d.suivi_zd||[]).some(zd => isOui(zd['suivi_zd/etat_avancement/maj_achevee'])))
+    .map(d => d['identification/date_saisie'] || d._submission_time?.split('T')[0] || '')
+    .filter(Boolean).sort();
+  const dateLastActif = datesAvecAch.length ? datesAvecAch[datesAvecAch.length - 1] : dateLast;
+
+  let zdAcheveesAuj = 0;
+  allData.forEach(d => {
+    const dateD = d['identification/date_saisie'] || d._submission_time?.split('T')[0] || '';
+    if (dateD === dateLastActif) {
+      zdAcheveesAuj += toInt(d['totaux_zc/total_zd_achevees']);
+      // Estimation depuis suivi_zd si totaux_zc absent
+      if (!toInt(d['totaux_zc/total_zd_achevees'])) {
+        (d.suivi_zd || []).forEach(zd => {
+          if (isOui(zd['suivi_zd/etat_avancement/maj_achevee'])) zdAcheveesAuj++;
+        });
+      }
+    }
   });
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -417,7 +438,7 @@ function renderOperationalDashboard() {
   setText('kpi-o-zdach',     totalZdAcheveesTot.toLocaleString('fr-FR'));
   setText('kpi-o-zdach-sub', `${pctAch}% achèvement · ${totalZdAssignees} assignées`);
   setText('kpi-o-zdauj',     zdAcheveesAuj.toLocaleString('fr-FR'));
-  setText('kpi-o-zdauj-sub', `MAJ achevée : ${majAchevee}/${zdCount} ZD (${pctMaj}%)`);
+  setText('kpi-o-zdauj-sub', `au ${fmtShort(dateLastActif)} · MAJ achevée cumul : ${majAchevee} ZD`);
   setText('kpi-o-agents',    totalAgentsPresents.toLocaleString('fr-FR'));
   setText('kpi-o-agents-sub',`${pctPres}% présence · ${totalAgentsPrevus} prévus`);
   setText('kpi-o-np',        totalNonPayes.toLocaleString('fr-FR'));
@@ -427,14 +448,16 @@ function renderOperationalDashboard() {
   setText('kpi-o-men',       totalMenages.toLocaleString('fr-FR'));
   setText('kpi-o-men-sub',   `dont ${totalMenagesAgric.toLocaleString('fr-FR')} agric. (${pctAgric}%)`);
 
-  // ── Appréciation des journées + avancement ZD ──
+  // ── Appréciation des journées ──
   const totalApprec = apprec.bonne + apprec.difficile + apprec.bloquee;
   const apprecCfg = [
     { key:'bonne',    color:'#16a34a', label:'Bonne journée' },
     { key:'difficile',color:'#d97706', label:'Difficile'      },
     { key:'bloquee',  color:'#dc2626', label:'Bloquée'        },
   ];
-  let appHtml = '';
+  let appHtml = `<div style="font-size:0.72rem;font-weight:700;color:#374151;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">
+    Appréciation des journées <span style="font-weight:400;color:#64748b">(${totalApprec} fiches)</span>
+  </div>`;
   apprecCfg.forEach(({ key, color, label }) => {
     const count = apprec[key] || 0;
     const pct   = totalApprec > 0 ? Math.round(count / totalApprec * 100) : 0;
@@ -449,15 +472,18 @@ function renderOperationalDashboard() {
         </div>
       </div>`;
   });
-  // Avancement ZD inline
+
+  // ── Avancement ZD — section séparée avec titre distinct ──
   appHtml += `<hr class="my-2">
-    <div style="font-size:0.72rem;font-weight:600;color:#374151;margin-bottom:4px">AVANCEMENT ZD (${zdCount} renseignées)</div>`;
+    <div style="font-size:0.72rem;font-weight:700;color:#374151;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">
+      Avancement ZD <span style="font-weight:400;color:#64748b">(${zdCount} lignes suivi)</span>
+    </div>`;
   const avancCfg = [
-    { label:'MAJ achevée',      val:majAchevee,  color:'#16a34a' },
-    { label:'Données synchro',  val:donneesSync, color:'#2563eb' },
-    { label:'Croquis validés',  val:croquis,     color:'#7c3aed' },
-    { label:'Présence CE',      val:presenceCE,  color:'#0891b2' },
-    { label:'Présence AR',      val:presenceAR,  color:'#0891b2' },
+    { label:'Mise à jour achevée', val:majAchevee,  color:'#16a34a' },
+    { label:'Données synchronisées', val:donneesSync, color:'#2563eb' },
+    { label:'Croquis validés',     val:croquis,     color:'#7c3aed' },
+    { label:'Présence Chef Équipe',val:presenceCE,  color:'#0891b2' },
+    { label:'Présence Agent Rec.', val:presenceAR,  color:'#0891b2' },
   ];
   avancCfg.forEach(({ label, val, color }) => {
     const pct = zdCount > 0 ? Math.round(val / zdCount * 100) : 0;
@@ -465,14 +491,14 @@ function renderOperationalDashboard() {
       <div class="apprec-bar-item">
         <div class="apprec-bar-label">
           <span style="color:${color}">${label}</span>
-          <span style="color:${color}">${val}/${zdCount} (${pct}%)</span>
+          <span style="color:${color};font-weight:600">${val} ZD (${pct}%)</span>
         </div>
         <div class="apprec-bar-track">
           <div class="apprec-bar-fill" style="width:${pct}%;background:${color}"></div>
         </div>
       </div>`;
   });
-  appHtml += `<div class="text-muted mt-2" style="font-size:0.71rem">${totalApprec} fiches · ZD segmentées: ${totalZdSegmentees} · ZD regroupées: ${totalZdRegroupees}</div>`;
+  appHtml += `<div class="text-muted mt-2" style="font-size:0.71rem">ZD segmentées: ${totalZdSegmentees} · ZD regroupées: ${totalZdRegroupees} · Croquis num.: ${totalZdCroquis}</div>`;
   byId('appreciation-body').innerHTML = appHtml;
 
   // ── Alertes prioritaires ──
