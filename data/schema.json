@@ -174,8 +174,8 @@
     "xls": "https://kc.kobotoolbox.org/pdba/reports/aaoCZKsTPkLeLhdB6wDXdW/export.xlsx",
     "csv": "https://kc.kobotoolbox.org/pdba/reports/aaoCZKsTPkLeLhdB6wDXdW/export.csv"
   },
-  "deployment__submission_count": 187,
-  "deployment__last_submission_time": "2026-05-13T06:45:42.190648Z",
+  "deployment__submission_count": 197,
+  "deployment__last_submission_time": "2026-05-13T10:29:01.313686Z",
   "deployment__encrypted": false,
   "deployment__uuid": "2d20927490df4280b829f69dcc13dc6b",
   "deployment_status": "deployed",
@@ -10529,54 +10529,6 @@
       "label": "View submissions"
     },
     {
-      "url": "https://kf.kobotoolbox.org/api/v2/assets/aaoCZKsTPkLeLhdB6wDXdW/permission-assignments/pRr79QoxjxTDmjEPvsWVsY/?format=json",
-      "user": "https://kf.kobotoolbox.org/api/v2/users/gtt_srhie/?format=json",
-      "permission": "https://kf.kobotoolbox.org/api/v2/permissions/add_submissions/?format=json",
-      "label": "Add submissions"
-    },
-    {
-      "url": "https://kf.kobotoolbox.org/api/v2/assets/aaoCZKsTPkLeLhdB6wDXdW/permission-assignments/pgyNWo4B9irF776dcgNs7n/?format=json",
-      "user": "https://kf.kobotoolbox.org/api/v2/users/gtt_srhie/?format=json",
-      "permission": "https://kf.kobotoolbox.org/api/v2/permissions/change_asset/?format=json",
-      "label": "Edit form"
-    },
-    {
-      "url": "https://kf.kobotoolbox.org/api/v2/assets/aaoCZKsTPkLeLhdB6wDXdW/permission-assignments/pDyaThAXQzUWQJMd7GY9MR/?format=json",
-      "user": "https://kf.kobotoolbox.org/api/v2/users/gtt_srhie/?format=json",
-      "permission": "https://kf.kobotoolbox.org/api/v2/permissions/change_submissions/?format=json",
-      "label": "Edit submissions"
-    },
-    {
-      "url": "https://kf.kobotoolbox.org/api/v2/assets/aaoCZKsTPkLeLhdB6wDXdW/permission-assignments/p7tHxjiyLmuYX83DmRDpuM/?format=json",
-      "user": "https://kf.kobotoolbox.org/api/v2/users/gtt_srhie/?format=json",
-      "permission": "https://kf.kobotoolbox.org/api/v2/permissions/delete_submissions/?format=json",
-      "label": "Delete submissions"
-    },
-    {
-      "url": "https://kf.kobotoolbox.org/api/v2/assets/aaoCZKsTPkLeLhdB6wDXdW/permission-assignments/pLTa2DPcyUvL8Hmu7nqNbX/?format=json",
-      "user": "https://kf.kobotoolbox.org/api/v2/users/gtt_srhie/?format=json",
-      "permission": "https://kf.kobotoolbox.org/api/v2/permissions/manage_asset/?format=json",
-      "label": "Manage project"
-    },
-    {
-      "url": "https://kf.kobotoolbox.org/api/v2/assets/aaoCZKsTPkLeLhdB6wDXdW/permission-assignments/pZb85HDxXVbcrgNEtNU7Gz/?format=json",
-      "user": "https://kf.kobotoolbox.org/api/v2/users/gtt_srhie/?format=json",
-      "permission": "https://kf.kobotoolbox.org/api/v2/permissions/validate_submissions/?format=json",
-      "label": "Validate submissions"
-    },
-    {
-      "url": "https://kf.kobotoolbox.org/api/v2/assets/aaoCZKsTPkLeLhdB6wDXdW/permission-assignments/pmkTi5xL6vshAAqtJJ2RUj/?format=json",
-      "user": "https://kf.kobotoolbox.org/api/v2/users/gtt_srhie/?format=json",
-      "permission": "https://kf.kobotoolbox.org/api/v2/permissions/view_asset/?format=json",
-      "label": "View form"
-    },
-    {
-      "url": "https://kf.kobotoolbox.org/api/v2/assets/aaoCZKsTPkLeLhdB6wDXdW/permission-assignments/pxMxKywSoYhwjxhznbu4HP/?format=json",
-      "user": "https://kf.kobotoolbox.org/api/v2/users/gtt_srhie/?format=json",
-      "permission": "https://kf.kobotoolbox.org/api/v2/permissions/view_submissions/?format=json",
-      "label": "View submissions"
-    },
-    {
       "url": "https://kf.kobotoolbox.org/api/v2/assets/aaoCZKsTPkLeLhdB6wDXdW/permission-assignments/pyAhD5vSWKjDEVucB4Jru8/?format=json",
       "user": "https://kf.kobotoolbox.org/api/v2/users/jondoa/?format=json",
       "permission": "https://kf.kobotoolbox.org/api/v2/permissions/add_submissions/?format=json",
@@ -10675,7 +10627,22 @@
   ],
   "effective_permissions": [
     {
+      "codename": "change_submissions"
+    },
+    {
+      "codename": "delete_submissions"
+    },
+    {
+      "codename": "view_asset"
+    },
+    {
+      "codename": "change_asset"
+    },
+    {
       "codename": "delete_asset"
+    },
+    {
+      "codename": "manage_asset"
     },
     {
       "codename": "view_submissions"
@@ -10684,22 +10651,7 @@
       "codename": "add_submissions"
     },
     {
-      "codename": "change_submissions"
-    },
-    {
-      "codename": "change_asset"
-    },
-    {
-      "codename": "delete_submissions"
-    },
-    {
-      "codename": "manage_asset"
-    },
-    {
       "codename": "validate_submissions"
-    },
-    {
-      "codename": "view_asset"
     }
   ],
   "exports": "https://kf.kobotoolbox.org/api/v2/assets/aaoCZKsTPkLeLhdB6wDXdW/exports/?format=json",
