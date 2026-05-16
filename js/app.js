@@ -431,9 +431,8 @@ function renderOperationalDashboard() {
   const totalZdVisiteesTot = totalZdVisitees + zdVisiteesEstim;
   const totalZdAcheveesTot = totalZdAchevees + zdAcheveesEstim;
 
-  // ── Compteurs RH / ménages depuis auto_* (niveau ZC, 264/273 fiches, dédupliqué) ──
-  // auto_* = valeurs pré-calculées par KoboToolbox pour chaque ZC → pas de double-comptage
-  let totalMenages = 0, totalMenagesAgric = 0;
+  // ── Compteurs RH depuis auto_* (dédupliqué par ZC — valeurs de présence/paiement
+  //    sont per-jour et la dernière fiche est suffisante pour l'état du jour) ──
   let totalAgentsPresents = 0, totalAgentsAbsents = 0;
   let totalAgentsMalades = 0, totalDesistements = 0, totalReservistes = 0;
   let totalNonPayes = 0;
@@ -444,8 +443,28 @@ function renderOperationalDashboard() {
     totalDesistements   += toInt(d['auto_desist']);
     totalReservistes    += toInt(d['auto_reserv']);
     totalNonPayes       += toInt(d['auto_non_payes']);
-    totalMenages        += toInt(d['auto_menages']);
-    totalMenagesAgric   += toInt(d['auto_men_agric']);
+  });
+
+  // ── Ménages : stratégie MAX-par-(ZC+date) → SUM des dates ──
+  // auto_menages est un compteur JOURNALIER (pas cumulatif) :
+  //   → chaque jour couvre des ZDs différentes → il faut SOMMER les jours
+  //   → plusieurs fiches le même jour pour une ZC → prendre le MAX (doublon)
+  // Résultat : ~106 000 ménages (vs ~70 000 avec simple dedup par ZC)
+  let totalMenages = 0, totalMenagesAgric = 0;
+  const menByZCDate = {}; // clé = "ZC|date" → {men, agric}
+  data.forEach(d => {
+    const zc   = d['identification/n_zc']; if (!zc) return;
+    const date = d['identification/date_saisie'] || d._submission_time?.split('T')[0] || '?';
+    const key  = zc + '|' + date;
+    const men  = toInt(d['auto_menages'])   || (d.suivi_zd||[]).reduce((s,zd) => s + toInt(zd['suivi_zd/menages/nb_menages']), 0);
+    const agric= toInt(d['auto_men_agric']);
+    if (!menByZCDate[key] || men > menByZCDate[key].men) {
+      menByZCDate[key] = { men, agric };
+    }
+  });
+  Object.values(menByZCDate).forEach(({ men, agric }) => {
+    totalMenages      += men;
+    totalMenagesAgric += agric;
   });
 
   // ── Compteurs ZD depuis suivi_zd (dédupliqué, double structure du formulaire) ──
