@@ -263,19 +263,21 @@ function renderOperationalDashboard() {
   let totalZdAssignees = 0, totalZdVisitees = 0, totalZdAchevees = 0;
   let totalZdSegmentees = 0, totalZdRegroupees = 0, totalZdCroquis = 0;
   dedupedData.forEach(d => {
-    totalZdAssignees  += toInt(d['totaux_zc/total_zd_assignees']);
-    totalZdVisitees   += toInt(d['totaux_zc/total_zd_visitees']);
-    totalZdAchevees   += toInt(d['totaux_zc/total_zd_achevees']);
-    totalZdSegmentees += toInt(d['totaux_zc/total_zd_segmentees']);
-    totalZdRegroupees += toInt(d['totaux_zc/total_zd_regroupees']);
-    totalZdCroquis    += toInt(d['totaux_zc/total_zd_croquis']);
+    totalZdAssignees  += toInt(d['totaux_zc/total_zd_assignees'] || d['auto_zd_apres_maj']);
+    totalZdVisitees   += toInt(d['auto_nb_zd_visitees'] || d['totaux_zc/total_zd_visitees']);
+    totalZdAchevees   += toInt(d['totaux_zc/tot_cumul/cumul_zd_achevees'] || d['auto_zd_achevees'] || d['totaux_zc/total_zd_achevees']);
+    totalZdSegmentees += toInt(d['auto_zd_segmentees'] || d['totaux_zc/total_zd_segmentees']);
+    totalZdRegroupees += toInt(d['auto_zd_regroupees'] || d['totaux_zc/total_zd_regroupees']);
+    totalZdCroquis    += toInt(d['auto_zd_croquis'] || d['totaux_zc/total_zd_croquis']);
   });
 
   // ── ZD achevées lors du dernier jour actif (dernière date avec des achèvements) ──
   // BUG CORRIGÉ : ne pas comparer avec "aujourd'hui" (page statique, data figée)
   // → chercher la dernière date avec au moins 1 ZD achevée
   const datesAvecAch = allData
-    .filter(d => toInt(d['totaux_zc/total_zd_achevees']) > 0 ||
+    .filter(d => toInt(d['auto_zd_achevees']) > 0 ||
+                 toInt(d['totaux_zc/tot_cumul/cumul_zd_achevees']) > 0 ||
+                 toInt(d['totaux_zc/total_zd_achevees']) > 0 ||
                  (d.suivi_zd||[]).some(zd => isOui(zd['suivi_zd/etat_avancement/maj_achevee'])))
     .map(d => d['identification/date_saisie'] || d._submission_time?.split('T')[0] || '')
     .filter(Boolean).sort();
@@ -285,13 +287,7 @@ function renderOperationalDashboard() {
   allData.forEach(d => {
     const dateD = d['identification/date_saisie'] || d._submission_time?.split('T')[0] || '';
     if (dateD === dateLastActif) {
-      zdAcheveesAuj += toInt(d['totaux_zc/total_zd_achevees']);
-      // Estimation depuis suivi_zd si totaux_zc absent
-      if (!toInt(d['totaux_zc/total_zd_achevees'])) {
-        (d.suivi_zd || []).forEach(zd => {
-          if (isOui(zd['suivi_zd/etat_avancement/maj_achevee'])) zdAcheveesAuj++;
-        });
-      }
+      zdAcheveesAuj += toInt(d['auto_zd_achevees'] || d['totaux_zc/total_zd_achevees']);
     }
   });
 
@@ -301,7 +297,10 @@ function renderOperationalDashboard() {
   // Pour les ZC avec totaux_zc, on garde ces valeurs (plus fiables).
   // ══════════════════════════════════════════════════════════════════════════
   const zcsAvecTotauxZC = new Set(
-    dedupedData.filter(d => toInt(d['totaux_zc/total_zd_visitees']) > 0 ||
+    dedupedData.filter(d => toInt(d['auto_nb_zd_visitees']) > 0 ||
+                            toInt(d['totaux_zc/tot_cumul/cumul_zd_achevees']) > 0 ||
+                            toInt(d['auto_zd_achevees']) > 0 ||
+                            toInt(d['totaux_zc/total_zd_visitees']) > 0 ||
                             toInt(d['totaux_zc/total_zd_achevees']) > 0)
                .map(d => d['identification/n_zc'])
   );
@@ -379,9 +378,9 @@ function renderOperationalDashboard() {
   dedupedData.forEach(d => {
     const zc = d['identification/n_zc']; if (!zc) return;
     byZC[zc] = {
-      visitees      : toInt(d['totaux_zc/total_zd_visitees']),
-      achevees      : toInt(d['totaux_zc/total_zd_achevees']),
-      assignees     : toInt(d['totaux_zc/total_zd_assignees']),
+      visitees      : toInt(d['auto_nb_zd_visitees'] || d['totaux_zc/total_zd_visitees']),
+      achevees      : toInt(d['totaux_zc/tot_cumul/cumul_zd_achevees'] || d['auto_zd_achevees'] || d['totaux_zc/total_zd_achevees']),
+      assignees     : toInt(d['totaux_zc/total_zd_assignees'] || d['auto_zd_apres_maj']),
       nonPayes      : 0,
       desistements  : 0,
       menages       : 0,
