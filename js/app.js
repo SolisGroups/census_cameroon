@@ -491,6 +491,13 @@ function renderOperationalDashboard() {
   const pctSync   = zdCount > 0 ? (donneesSync  / zdCount * 100).toFixed(0) : 0;
   const pctPres   = totalAgentsPrevus > 0 ? (totalAgentsPresents / totalAgentsPrevus * 100).toFixed(0) : 0;
   const pctAgric  = totalMenages > 0 ? (totalMenagesAgric / totalMenages * 100).toFixed(1) : 0;
+  const pctNP     = totalAgentsPresents > 0 ? Math.round(totalNonPayes    / totalAgentsPresents * 100) : 0;
+  const pctDes    = totalAgentsPresents > 0 ? Math.round(totalDesistements / totalAgentsPresents * 100) : 0;
+
+  // Badge % inline — petit badge coloré affiché à droite du chiffre principal d'un KPI
+  const pctBadge = (pct, color) =>
+    `<span style="font-size:.5em;font-weight:700;opacity:.9;margin-left:4px;vertical-align:middle;` +
+    `background:${color}18;color:${color};border-radius:4px;padding:1px 5px">${pct}%</span>`;
 
   // ══════════════════════════════════════════════════════════════════════════
   // ÉTAPE 3 — Tableau par ZC (déduplication : une entrée par ZC)
@@ -556,17 +563,24 @@ function renderOperationalDashboard() {
   // ── 8 KPIs ──
   setText('kpi-o-ctrl',      controleurs.size.toLocaleString('fr-FR'));
   setText('kpi-o-ctrl-sub',  `${regions.size} région${regions.size>1?'s':''} · ${zcs.size} ZC · ${allData.length} fiches`);
-  setText('kpi-o-zdvis',     totalZdVisiteesTot.toLocaleString('fr-FR'));
-  setText('kpi-o-zdvis-sub', `${pctVis}% des ${totalZdAssignees} ZD assignées`);
-  setText('kpi-o-zdach',     totalZdAcheveesTot.toLocaleString('fr-FR'));
-  setText('kpi-o-zdach-sub', `${pctAch}% achèvement · ${totalZdAssignees} assignées`);
-  setText('kpi-o-zdauj',     zdAcheveesAuj.toLocaleString('fr-FR'));
+  // ZD visitées — % des assignées en badge
+  byId('kpi-o-zdvis').innerHTML  = totalZdVisiteesTot.toLocaleString('fr-FR') + pctBadge(pctVis, '#0284c7');
+  setText('kpi-o-zdvis-sub', `sur ${totalZdAssignees} ZD assignées`);
+  // ZD achevées cumul — % d'achèvement en badge
+  byId('kpi-o-zdach').innerHTML  = totalZdAcheveesTot.toLocaleString('fr-FR') + pctBadge(pctAch, '#d97706');
+  setText('kpi-o-zdach-sub', `achèvement · ${totalZdAssignees} assignées`);
+  // ZD achevées ce jour — % du total assignées
+  const pctAuj = totalZdAssignees > 0 ? Math.round(zdAcheveesAuj / totalZdAssignees * 100) : 0;
+  byId('kpi-o-zdauj').innerHTML  = zdAcheveesAuj.toLocaleString('fr-FR') + (pctAuj > 0 ? pctBadge(pctAuj, '#16a34a') : '');
   setText('kpi-o-zdauj-sub', `au ${fmtShort(dateLastActif)} · MAJ achevée cumul : ${majAchevee} ZD`);
-  setText('kpi-o-agents',    totalAgentsPresents.toLocaleString('fr-FR'));
-  setText('kpi-o-agents-sub',`${pctPres}% présence · ${totalAgentsPrevus} prévus`);
-  setText('kpi-o-np',        totalNonPayes.toLocaleString('fr-FR'));
-  setText('kpi-o-np-sub',    `agents non payés · ${totalAgentsAbsents} absents · ${totalAgentsMalades} malades`);
-  setText('kpi-o-des',       totalDesistements.toLocaleString('fr-FR'));
+  // Agents présents — % de présence en badge
+  byId('kpi-o-agents').innerHTML = totalAgentsPresents.toLocaleString('fr-FR') + pctBadge(pctPres, '#059669');
+  setText('kpi-o-agents-sub',`taux présence · ${totalAgentsPrevus} prévus`);
+  // Non payés — % des agents présents en badge
+  byId('kpi-o-np').innerHTML     = totalNonPayes.toLocaleString('fr-FR') + (pctNP > 0 ? pctBadge(pctNP, '#dc2626') : '');
+  setText('kpi-o-np-sub',    `des présents · ${totalAgentsAbsents} absents · ${totalAgentsMalades} malades`);
+  // Désistements — % des agents présents en badge
+  byId('kpi-o-des').innerHTML    = totalDesistements.toLocaleString('fr-FR') + (pctDes > 0 ? pctBadge(pctDes, '#ea580c') : '');
   setText('kpi-o-des-sub',   `${totalReservistes} réserviste${totalReservistes>1?'s':''} mobilisé${totalReservistes>1?'s':''}`);
   setText('kpi-o-men',       totalMenages.toLocaleString('fr-FR'));
   setText('kpi-o-men-sub',   `dont ${totalMenagesAgric.toLocaleString('fr-FR')} agric. (${pctAgric}%)`);
@@ -638,18 +652,21 @@ function renderOperationalDashboard() {
       <div class="alert-item critique">
         <div class="alert-item-header">
           <span class="alert-badge critique">P1 CRITIQUE</span>
-          <span class="alert-item-title">${totalNonPayes.toLocaleString('fr-FR')} agents non payés</span>
+          <span class="alert-item-title">${totalNonPayes.toLocaleString('fr-FR')} agents non payés
+            <small style="font-weight:400;opacity:.8">(${pctNP}% des présents)</small></span>
         </div>
         <div class="alert-item-detail">${topNP}</div>
       </div>`;
   }
 
   if (blockedZCs.length > 0) {
+    const pctBloq = zcs.size > 0 ? Math.round(blockedZCs.length / zcs.size * 100) : 0;
     alertHtml += `
       <div class="alert-item urgent">
         <div class="alert-item-header">
           <span class="alert-badge urgent">P1 URGENT</span>
-          <span class="alert-item-title">${blockedZCs.length} ZC bloquée${blockedZCs.length > 1 ? 's' : ''} — intervention urgente &lt;24h</span>
+          <span class="alert-item-title">${blockedZCs.length} ZC bloquée${blockedZCs.length > 1 ? 's' : ''}
+            <small style="font-weight:400;opacity:.8">(${pctBloq}% des ZC)</small> — intervention urgente &lt;24h</span>
         </div>
         <div class="alert-item-detail">${blockedZCs.join(' — ')}</div>
       </div>`;
@@ -672,17 +689,20 @@ function renderOperationalDashboard() {
   // Difficultés techniques
   const totalDiffTech = diffMapIt + diffGPS + diffReseau + diffBatterie + diffElec;
   if (totalDiffTech > 0) {
+    const pctTech = zdCount > 0 ? Math.round(totalDiffTech / zdCount * 100) : 0;
+    const zdP = n => zdCount > 0 ? ` (${Math.round(n / zdCount * 100)}%)` : '';
     const dParts = [];
-    if (diffReseau)   dParts.push(`Réseau : ${diffReseau} ZD`);
-    if (diffMapIt)    dParts.push(`MapIt : ${diffMapIt} ZD`);
-    if (diffBatterie) dParts.push(`Batterie : ${diffBatterie} ZD`);
-    if (diffElec)     dParts.push(`Électricité : ${diffElec} ZD`);
-    if (diffGPS)      dParts.push(`GPS : ${diffGPS} ZD`);
+    if (diffReseau)   dParts.push(`Réseau : ${diffReseau} ZD${zdP(diffReseau)}`);
+    if (diffMapIt)    dParts.push(`MapIt : ${diffMapIt} ZD${zdP(diffMapIt)}`);
+    if (diffBatterie) dParts.push(`Batterie : ${diffBatterie} ZD${zdP(diffBatterie)}`);
+    if (diffElec)     dParts.push(`Électricité : ${diffElec} ZD${zdP(diffElec)}`);
+    if (diffGPS)      dParts.push(`GPS : ${diffGPS} ZD${zdP(diffGPS)}`);
     alertHtml += `
       <div class="alert-item urgent">
         <div class="alert-item-header">
           <span class="alert-badge urgent">P2 TECHNIQUE</span>
-          <span class="alert-item-title">${totalDiffTech} ZD avec difficultés techniques</span>
+          <span class="alert-item-title">${totalDiffTech} ZD avec difficultés techniques
+            <small style="font-weight:400;opacity:.8">(${pctTech}% des ZD suivies)</small></span>
         </div>
         <div class="alert-item-detail">${dParts.join(' · ')}</div>
       </div>`;
@@ -691,17 +711,20 @@ function renderOperationalDashboard() {
   // Difficultés terrain
   const totalDiffTerrain = diffAcces + diffAdhesion + diffMenagesAbs + diffRefus + diffLangue;
   if (totalDiffTerrain > 0) {
+    const pctTerr = zdCount > 0 ? Math.round(totalDiffTerrain / zdCount * 100) : 0;
+    const zdP = n => zdCount > 0 ? ` (${Math.round(n / zdCount * 100)}%)` : '';
     const tParts = [];
-    if (diffMenagesAbs) tParts.push(`Ménages absents : ${diffMenagesAbs}`);
-    if (diffAcces)      tParts.push(`Accès : ${diffAcces}`);
-    if (diffRefus)      tParts.push(`Refus : ${diffRefus}`);
-    if (diffAdhesion)   tParts.push(`Adhésion : ${diffAdhesion}`);
-    if (diffLangue)     tParts.push(`Langue : ${diffLangue}`);
+    if (diffMenagesAbs) tParts.push(`Ménages absents : ${diffMenagesAbs}${zdP(diffMenagesAbs)}`);
+    if (diffAcces)      tParts.push(`Accès : ${diffAcces}${zdP(diffAcces)}`);
+    if (diffRefus)      tParts.push(`Refus : ${diffRefus}${zdP(diffRefus)}`);
+    if (diffAdhesion)   tParts.push(`Adhésion : ${diffAdhesion}${zdP(diffAdhesion)}`);
+    if (diffLangue)     tParts.push(`Langue : ${diffLangue}${zdP(diffLangue)}`);
     alertHtml += `
       <div class="alert-item excep">
         <div class="alert-item-header">
           <span class="alert-badge excep">P2 TERRAIN</span>
-          <span class="alert-item-title">${totalDiffTerrain} ZD avec difficultés terrain</span>
+          <span class="alert-item-title">${totalDiffTerrain} ZD avec difficultés terrain
+            <small style="font-weight:400;opacity:.8">(${pctTerr}% des ZD suivies)</small></span>
         </div>
         <div class="alert-item-detail">${tParts.join(' · ')}</div>
       </div>`;
@@ -710,12 +733,14 @@ function renderOperationalDashboard() {
   const completedZCs = Object.entries(byZC)
     .filter(([, v]) => v.assignees > 0 && v.achevees >= v.assignees);
   if (completedZCs.length > 0) {
+    const pctCompZC = zcs.size > 0 ? Math.round(completedZCs.length / zcs.size * 100) : 0;
     const label = completedZCs.slice(0, 3).map(([zc, v]) => `ZC ${zc} (${v.achevees}/${v.assignees})`).join(' · ');
     alertHtml += `
       <div class="alert-item excep">
         <div class="alert-item-header">
           <span class="alert-badge excep">EXCEPTIONNEL</span>
-          <span class="alert-item-title">${completedZCs.length} ZC à 100% des ZD achevées !</span>
+          <span class="alert-item-title">${completedZCs.length} ZC à 100% des ZD achevées !
+            <small style="font-weight:400;opacity:.8">(${pctCompZC}% des ZC)</small></span>
         </div>
         <div class="alert-item-detail">${label}</div>
       </div>`;
@@ -750,7 +775,10 @@ function renderOperationalDashboard() {
     zcHtml += `<tr>
       <td><strong>ZC ${zc}</strong><span class="zc-region-lbl">${reg}</span></td>
       <td>
-        <div style="font-size:0.7rem;color:#64748b;margin-bottom:2px">${v.visitees} vis. / ${v.achevees} ach. sur ${v.assignees || '?'}</div>
+        <div style="font-size:0.7rem;color:#64748b;margin-bottom:2px">
+          ${v.visitees} vis. / ${v.achevees} ach. sur ${v.assignees || '?'}
+          <span style="font-weight:700;color:${barClr};margin-left:4px">${pct}%</span>
+        </div>
         <div class="zc-progress">
           <div class="zc-progress-fill" style="width:${Math.max(pct, v.visitees > 0 ? 4 : 0)}%;background:${barClr}"></div>
         </div>
@@ -766,7 +794,7 @@ function renderOperationalDashboard() {
   const actions = [];
   if (totalNonPayes > 0)
     actions.push({ num:1, priority:'P1 CRITIQUE', color:'#dc2626',
-      title:`PAIEMENT URGENT — ${totalNonPayes.toLocaleString('fr-FR')} agents non payés`,
+      title:`PAIEMENT URGENT — ${totalNonPayes.toLocaleString('fr-FR')} agents non payés (${pctNP}%)`,
       desc:'Virement immédiat, dérogation SIM', footer:'Coord. Nat. / 24h' });
 
   if (blockedZCs.length > 0)
@@ -785,16 +813,20 @@ function renderOperationalDashboard() {
       desc:`${totalReservistes} réserviste${totalReservistes>1?'s':''} disponible${totalReservistes>1?'s':''}`, footer:'Gest. RH / 24h' });
 
   const totalDiffTechAct = diffMapIt + diffGPS + diffReseau + diffBatterie + diffElec;
-  if (totalDiffTechAct > 0 && actions.length < 4)
+  if (totalDiffTechAct > 0 && actions.length < 4) {
+    const pT = zdCount > 0 ? Math.round(totalDiffTechAct / zdCount * 100) : 0;
     actions.push({ num:actions.length+1, priority:'P2 TECHNIQUE', color:'#7c3aed',
-      title:`${totalDiffTechAct} ZD AVEC DIFFICULTÉS TECHNIQUES`,
+      title:`${totalDiffTechAct} ZD (${pT}%) AVEC DIFFICULTÉS TECHNIQUES`,
       desc:`Réseau: ${diffReseau} · MapIt: ${diffMapIt} · Batterie: ${diffBatterie}`, footer:'Sup. Tech. / 48h' });
+  }
 
   const totalDiffTerrainAct = diffAcces + diffAdhesion + diffMenagesAbs + diffRefus + diffLangue;
-  if (totalDiffTerrainAct > 0 && actions.length < 4)
+  if (totalDiffTerrainAct > 0 && actions.length < 4) {
+    const pTe = zdCount > 0 ? Math.round(totalDiffTerrainAct / zdCount * 100) : 0;
     actions.push({ num:actions.length+1, priority:'P2 TERRAIN', color:'#ea580c',
-      title:`${totalDiffTerrainAct} ZD AVEC DIFFICULTÉS TERRAIN`,
+      title:`${totalDiffTerrainAct} ZD (${pTe}%) AVEC DIFFICULTÉS TERRAIN`,
       desc:`Absents: ${diffMenagesAbs} · Accès: ${diffAcces} · Refus: ${diffRefus}`, footer:'Sup. Dép. / 48h' });
+  }
 
   while (actions.length < 4)
     actions.push({ num:actions.length+1, priority:'P2 SUIVI', color:'#64748b',
