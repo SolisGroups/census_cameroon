@@ -263,7 +263,7 @@ function renderOperationalDashboard() {
   let totalZdAssignees = 0, totalZdVisitees = 0, totalZdAchevees = 0;
   let totalZdSegmentees = 0, totalZdRegroupees = 0, totalZdCroquis = 0;
   dedupedData.forEach(d => {
-    totalZdAssignees  += toInt(d['totaux_zc/total_zd_assignees'] || d['auto_zd_apres_maj']);
+    totalZdAssignees  += toInt(d['auto_zd_apres_maj'] || d['identification/nb_zd_assignees_zc'] || d['totaux_zc/total_zd_assignees']);
     totalZdVisitees   += toInt(d['auto_nb_zd_visitees'] || d['totaux_zc/total_zd_visitees']);
     totalZdAchevees   += toInt(d['totaux_zc/tot_cumul/cumul_zd_achevees'] || d['auto_zd_achevees'] || d['totaux_zc/total_zd_achevees']);
     totalZdSegmentees += toInt(d['auto_zd_segmentees'] || d['totaux_zc/total_zd_segmentees']);
@@ -283,11 +283,20 @@ function renderOperationalDashboard() {
     .filter(Boolean).sort();
   const dateLastActif = datesAvecAch.length ? datesAvecAch[datesAvecAch.length - 1] : dateLast;
 
+  // ZD achevées ce jour — auto_zd_achevees compte uniquement l'ancienne structure
+  // (etat_avancement/) ; pour la nouvelle (etat/) on compte manuellement depuis suivi_zd
   let zdAcheveesAuj = 0;
   allData.forEach(d => {
     const dateD = d['identification/date_saisie'] || d._submission_time?.split('T')[0] || '';
-    if (dateD === dateLastActif) {
-      zdAcheveesAuj += toInt(d['auto_zd_achevees'] || d['totaux_zc/total_zd_achevees']);
+    if (dateD !== dateLastActif) return;
+    const autoAch = toInt(d['auto_zd_achevees']);
+    if (autoAch > 0) {
+      zdAcheveesAuj += autoAch;
+    } else {
+      (d.suivi_zd || []).forEach(zd => {
+        if (isOui(zd['suivi_zd/etat/maj_achevee']) || isOui(zd['suivi_zd/etat_avancement/maj_achevee']))
+          zdAcheveesAuj++;
+      });
     }
   });
 
@@ -305,14 +314,16 @@ function renderOperationalDashboard() {
                .map(d => d['identification/n_zc'])
   );
 
-  // Pour les ZC SANS totaux_zc : compter depuis suivi_zd (uniquement la dernière soumission par ZC)
+  // Pour les ZC SANS totaux_zc : compter depuis suivi_zd (dernière soumission par ZC)
+  // Double structure : etat_avancement/ (ancienne, 43 entrées) et etat/ (nouvelle, 915 entrées)
   let zdVisiteesEstim = 0, zdAcheveesEstim = 0;
   dedupedData.forEach(d => {
     const zc = d['identification/n_zc']; if (!zc) return;
     if (!zcsAvecTotauxZC.has(zc)) {
       (d.suivi_zd || []).forEach(zd => {
-        if (isOui(zd['suivi_zd/presence/presence_ce']) || isOui(zd['suivi_zd/presence/presence_ar'])) zdVisiteesEstim++;
-        if (isOui(zd['suivi_zd/etat_avancement/maj_achevee'])) zdAcheveesEstim++;
+        if (isOui(zd['suivi_zd/presence/presence_ce']) || isOui(zd['suivi_zd/presence/presence_ar']) ||
+            isOui(zd['suivi_zd/etat/zd_observee'])) zdVisiteesEstim++;
+        if (isOui(zd['suivi_zd/etat/maj_achevee']) || isOui(zd['suivi_zd/etat_avancement/maj_achevee'])) zdAcheveesEstim++;
       });
     }
   });
@@ -320,43 +331,55 @@ function renderOperationalDashboard() {
   const totalZdVisiteesTot = totalZdVisitees + zdVisiteesEstim;
   const totalZdAcheveesTot = totalZdAchevees + zdAcheveesEstim;
 
-  // ── Compteurs niveau ZD (toutes soumissions cumulées) ──
+  // ── Compteurs RH / ménages depuis auto_* (niveau ZC, 264/273 fiches, dédupliqué) ──
+  // auto_* = valeurs pré-calculées par KoboToolbox pour chaque ZC → pas de double-comptage
   let totalMenages = 0, totalMenagesAgric = 0;
-  let totalAgentsPrevus = 0, totalAgentsPresents = 0, totalAgentsAbsents = 0;
+  let totalAgentsPresents = 0, totalAgentsAbsents = 0;
   let totalAgentsMalades = 0, totalDesistements = 0, totalReservistes = 0;
-  let totalNonPayes = 0, zdCount = 0;
-  let majAchevee = 0, donneesSync = 0, croquis = 0;
-  let presenceCE = 0, presenceAR = 0;
+  let totalNonPayes = 0;
+  dedupedData.forEach(d => {
+    totalAgentsPresents += toInt(d['auto_presents']);
+    totalAgentsAbsents  += toInt(d['auto_absents']);
+    totalAgentsMalades  += toInt(d['auto_malades']);
+    totalDesistements   += toInt(d['auto_desist']);
+    totalReservistes    += toInt(d['auto_reserv']);
+    totalNonPayes       += toInt(d['auto_non_payes']);
+    totalMenages        += toInt(d['auto_menages']);
+    totalMenagesAgric   += toInt(d['auto_men_agric']);
+  });
+
+  // ── Compteurs ZD depuis suivi_zd (dédupliqué, double structure du formulaire) ──
+  // Ancienne version : suivi_zd/etat_avancement/X  (43 entrées / 1 023)
+  // Nouvelle version : suivi_zd/etat/X             (915 entrées / 1 023)
+  // zdVal() lit les deux versions pour ne perdre aucune donnée
+  const zdVal = (zd, f) =>
+    isOui(zd['suivi_zd/etat/' + f]) || isOui(zd['suivi_zd/etat_avancement/' + f]);
+
+  let zdCount = 0, majAchevee = 0, donneesSync = 0, croquis = 0;
+  let presenceCE = 0, presenceAR = 0, totalAgentsPrevus = 0;
   let diffMapIt = 0, diffGPS = 0, diffReseau = 0, diffBatterie = 0, diffElec = 0;
   let diffAcces = 0, diffAdhesion = 0, diffMenagesAbs = 0, diffRefus = 0, diffLangue = 0;
 
-  allData.forEach(d => {
+  dedupedData.forEach(d => {
     (d.suivi_zd || []).forEach(zd => {
       zdCount++;
-      totalMenages        += toInt(zd['suivi_zd/menages/nb_menages']);
-      totalMenagesAgric   += toInt(zd['suivi_zd/menages/nb_menages_agric']);
-      totalAgentsPrevus   += toInt(zd['suivi_zd/agents/agents_prevus']);
-      totalAgentsPresents += toInt(zd['suivi_zd/agents/agents_presents']);
-      totalAgentsAbsents  += toInt(zd['suivi_zd/agents/agents_absents']);
-      totalAgentsMalades  += toInt(zd['suivi_zd/agents/agents_malades']);
-      totalDesistements   += toInt(zd['suivi_zd/agents/agents_desistements']);
-      totalReservistes    += toInt(zd['suivi_zd/agents/agents_reservistes']);
-      totalNonPayes       += toInt(zd['suivi_zd/difficultes/diff_4d/nb_agents_non_payes']);
-      if (isOui(zd['suivi_zd/etat_avancement/maj_achevee']))           majAchevee++;
-      if (isOui(zd['suivi_zd/etat_avancement/donnees_synchro']))       donneesSync++;
-      if (isOui(zd['suivi_zd/etat_avancement/croquis_valides']))       croquis++;
-      if (isOui(zd['suivi_zd/presence/presence_ce']))                   presenceCE++;
-      if (isOui(zd['suivi_zd/presence/presence_ar']))                   presenceAR++;
-      if (isOui(zd['suivi_zd/difficultes/diff_4a/diff_mapit']))         diffMapIt++;
-      if (isOui(zd['suivi_zd/difficultes/diff_4a/diff_gps']))           diffGPS++;
-      if (isOui(zd['suivi_zd/difficultes/diff_4a/diff_reseau']))        diffReseau++;
-      if (isOui(zd['suivi_zd/difficultes/diff_4a/diff_batterie']))      diffBatterie++;
-      if (isOui(zd['suivi_zd/difficultes/diff_4a/diff_electricite']))   diffElec++;
-      if (isOui(zd['suivi_zd/difficultes/diff_4b/diff_acces_phys']))    diffAcces++;
-      if (isOui(zd['suivi_zd/difficultes/diff_4b/diff_adhesion']))      diffAdhesion++;
+      totalAgentsPrevus += toInt(zd['suivi_zd/agents/agents_prevus']);
+      if (zdVal(zd, 'maj_achevee'))     majAchevee++;
+      if (zdVal(zd, 'donnees_synchro')) donneesSync++;
+      if (zdVal(zd, 'croquis_valides')) croquis++;
+      // Présence : ancienne structure → presence_ce/ar ; nouvelle → zd_observee
+      if (isOui(zd['suivi_zd/presence/presence_ce']) || isOui(zd['suivi_zd/etat/zd_observee'])) presenceCE++;
+      if (isOui(zd['suivi_zd/presence/presence_ar']) || isOui(zd['suivi_zd/etat/zd_observee'])) presenceAR++;
+      if (isOui(zd['suivi_zd/difficultes/diff_4a/diff_mapit']))           diffMapIt++;
+      if (isOui(zd['suivi_zd/difficultes/diff_4a/diff_gps']))             diffGPS++;
+      if (isOui(zd['suivi_zd/difficultes/diff_4a/diff_reseau']))          diffReseau++;
+      if (isOui(zd['suivi_zd/difficultes/diff_4a/diff_batterie']))        diffBatterie++;
+      if (isOui(zd['suivi_zd/difficultes/diff_4a/diff_electricite']))     diffElec++;
+      if (isOui(zd['suivi_zd/difficultes/diff_4b/diff_acces_phys']))      diffAcces++;
+      if (isOui(zd['suivi_zd/difficultes/diff_4b/diff_adhesion']))        diffAdhesion++;
       if (isOui(zd['suivi_zd/difficultes/diff_4b/diff_menages_absents'])) diffMenagesAbs++;
-      if (isOui(zd['suivi_zd/difficultes/diff_4b/diff_refus']))         diffRefus++;
-      if (isOui(zd['suivi_zd/difficultes/diff_4b/diff_langue']))        diffLangue++;
+      if (isOui(zd['suivi_zd/difficultes/diff_4b/diff_refus']))           diffRefus++;
+      if (isOui(zd['suivi_zd/difficultes/diff_4b/diff_langue']))          diffLangue++;
     });
   });
 
@@ -380,7 +403,7 @@ function renderOperationalDashboard() {
     byZC[zc] = {
       visitees      : toInt(d['auto_nb_zd_visitees'] || d['totaux_zc/total_zd_visitees']),
       achevees      : toInt(d['totaux_zc/tot_cumul/cumul_zd_achevees'] || d['auto_zd_achevees'] || d['totaux_zc/total_zd_achevees']),
-      assignees     : toInt(d['totaux_zc/total_zd_assignees'] || d['auto_zd_apres_maj']),
+      assignees     : toInt(d['auto_zd_apres_maj'] || d['identification/nb_zd_assignees_zc'] || d['totaux_zc/total_zd_assignees']),
       nonPayes      : 0,
       desistements  : 0,
       menages       : 0,
@@ -395,10 +418,11 @@ function renderOperationalDashboard() {
       byZC[zc].nonPayes     += toInt(zd['suivi_zd/difficultes/diff_4d/nb_agents_non_payes']);
       byZC[zc].desistements += toInt(zd['suivi_zd/agents/agents_desistements']);
       byZC[zc].menages      += toInt(zd['suivi_zd/menages/nb_menages']);
-      // Estimer les ZD visitées si totaux_zc absent
+      // Estimer les ZD visitées / achevées si totaux_zc absent (double structure)
       if (!zcsAvecTotauxZC.has(zc)) {
-        if (isOui(zd['suivi_zd/presence/presence_ce']) || isOui(zd['suivi_zd/presence/presence_ar'])) byZC[zc].visitees++;
-        if (isOui(zd['suivi_zd/etat_avancement/maj_achevee'])) byZC[zc].achevees++;
+        if (isOui(zd['suivi_zd/presence/presence_ce']) || isOui(zd['suivi_zd/presence/presence_ar']) ||
+            isOui(zd['suivi_zd/etat/zd_observee'])) byZC[zc].visitees++;
+        if (isOui(zd['suivi_zd/etat/maj_achevee']) || isOui(zd['suivi_zd/etat_avancement/maj_achevee'])) byZC[zc].achevees++;
       }
     });
   });
@@ -862,7 +886,7 @@ function buildFieldSelector() {
     'Géographie':  ['identification/region','identification/departement','identification/arrondissement'],
     'Organisation':['identification/n_zc','identification/controleur','identification/superviseur'],
     'Bilan':       ['bilan/appreciation_globale'],
-    'Avancement ZD':  auto.filter(f => f.includes('etat_avancement')),
+    'Avancement ZD':  auto.filter(f => f.includes('etat_avancement') || f.includes('/etat/')),
     'Difficultés':    auto.filter(f => f.includes('difficultes')),
     'Autres':         ordered.filter(f => !f.includes('identification') && !f.includes('bilan') && !f.includes('etat_avancement') && !f.includes('difficultes'))
   };
@@ -1276,13 +1300,31 @@ function detectCategoricalFields(max = 10) {
     if (fromSchema.length) return fromSchema.slice(0, max);
   }
   if (!allData.length) return [];
-  return Object.keys(allData[0])
+  // Champs de niveau racine
+  const topLevel = Object.keys(allData[0])
     .filter(k => {
       if (k.startsWith('_') || k.includes('/uuid') || k.includes('instanceID')) return false;
+      if (k === 'suivi_zd') return false; // tableau imbriqué, traité séparément
       const vals = new Set(allData.slice(0, 200).map(d => d[k]).filter(v => v != null && v !== ''));
       return vals.size >= 2 && vals.size <= 40;
-    })
-    .slice(0, max);
+    });
+  // Champs de suivi_zd (groupe répété) — navigue dans les lignes
+  const zdFields = new Set();
+  allData.slice(0, 50).forEach(d => {
+    (d.suivi_zd || []).forEach(zd => {
+      Object.keys(zd).forEach(k => {
+        if (k.startsWith('_') || k.startsWith('suivi_zd/_c_')) return;
+        const vals = new Set();
+        allData.slice(0, 100).forEach(d2 =>
+          (d2.suivi_zd || []).forEach(zd2 => {
+            const v = zd2[k]; if (v != null && v !== '') vals.add(String(v));
+          })
+        );
+        if (vals.size >= 2 && vals.size <= 20) zdFields.add(k);
+      });
+    });
+  });
+  return [...new Set([...topLevel, ...zdFields])].slice(0, max);
 }
 
 function detectGeoLabel() {
@@ -1307,12 +1349,24 @@ function detectTextFields(max = 3) {
 // ─── Helpers données ──────────────────────────────────────────────────────
 function countValues(field) {
   const counts = {};
-  allData.forEach(d => {
-    const raw = d[field];
+  const addVal = raw => {
     if (raw == null || raw === '') return;
     const vals = (typeof raw === 'string' && raw.includes(' ') && !raw.match(/\d{4}-\d{2}/))
       ? raw.split(' ') : [String(raw)];
     vals.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+  };
+  allData.forEach(d => {
+    // Champs dans le groupe répété suivi_zd : naviguer dans chaque ligne
+    // Supporte les deux versions (etat/ et etat_avancement/)
+    if (field.startsWith('suivi_zd/')) {
+      const altField = field.replace('suivi_zd/etat_avancement/', 'suivi_zd/etat/');
+      (d.suivi_zd || []).forEach(zd => {
+        const raw = zd[field] ?? (altField !== field ? zd[altField] : undefined);
+        addVal(raw);
+      });
+      return;
+    }
+    addVal(d[field]);
   });
   return counts;
 }
