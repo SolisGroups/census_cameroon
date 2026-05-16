@@ -125,6 +125,102 @@ let mapMarkers   = null;
 let chartRefs    = {};
 let dataTableRef = null;
 
+// ─── Filtres administratifs globaux ─────────────────────────────────────
+let activeRegion = '';
+let activeDept   = '';
+let activeArr    = '';
+let activeZC     = '';
+
+/** Données filtrées selon les filtres administratifs actifs */
+function filtered() {
+  if (!activeRegion && !activeDept && !activeArr && !activeZC) return allData;
+  return allData.filter(d => {
+    if (activeRegion && d['identification/region']         !== activeRegion) return false;
+    if (activeDept   && d['identification/departement']   !== activeDept)   return false;
+    if (activeArr    && d['identification/arrondissement'] !== activeArr)    return false;
+    if (activeZC     && d['identification/n_zc']           !== activeZC)    return false;
+    return true;
+  });
+}
+
+/** Déduplique filtered() : une entrée par ZC (dernière soumission) */
+function deduplicatedFiltered() {
+  const latest = {};
+  filtered().forEach(d => {
+    const zc = d['identification/n_zc']; if (!zc) return;
+    const date = d['identification/date_saisie'] || d._submission_time?.split('T')[0] || '';
+    if (!latest[zc] || date >= (latest[zc]._date || '')) {
+      latest[zc] = { ...d, _date: date };
+    }
+  });
+  return Object.values(latest);
+}
+
+// ─── Gestion des filtres administratifs ──────────────────────────────────
+function populateAdminFilters() {
+  const fill = (id, vals, labelFn, currentVal, placeholder) => {
+    const el = byId(id); if (!el) return;
+    el.innerHTML = `<option value="">${placeholder}</option>` +
+      vals.map(v => `<option value="${v}"${v === currentVal ? ' selected' : ''}>${labelFn(v)}</option>`).join('');
+  };
+
+  const base0 = allData;
+  const regions = [...new Set(base0.map(d => d['identification/region']).filter(Boolean))].sort();
+  fill('filterRegion', regions, r => REGION_NAMES[r] || `Région ${r}`, activeRegion, 'Toutes régions');
+
+  const base1 = activeRegion ? base0.filter(d => d['identification/region'] === activeRegion) : base0;
+  const depts = [...new Set(base1.map(d => d['identification/departement']).filter(Boolean))].sort();
+  fill('filterDept', depts, d => DEPT_NAMES[d] || d, activeDept, 'Tous départements');
+
+  const base2 = activeDept ? base1.filter(d => d['identification/departement'] === activeDept) : base1;
+  const arrs = [...new Set(base2.map(d => d['identification/arrondissement']).filter(Boolean))].sort();
+  fill('filterArr', arrs, a => {
+    if (!a) return a;
+    if (ARR_NAMES[a]) return ARR_NAMES[a];
+    const dept = DEPT_NAMES[a.slice(0, 4)];
+    return dept ? `${dept.split(' (')[0]} – Arr. ${parseInt(a.slice(4), 10) || a.slice(4)}` : a;
+  }, activeArr, 'Tous arrondissements');
+
+  const base3 = activeArr ? base2.filter(d => d['identification/arrondissement'] === activeArr) : base2;
+  const zcs = [...new Set(base3.map(d => d['identification/n_zc']).filter(Boolean))]
+    .sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
+  fill('filterZC', zcs, z => `ZC ${z}`, activeZC, 'Toutes ZC');
+
+  const bar = byId('adminFilterBar');
+  if (bar) bar.classList.remove('d-none');
+  _updateFilterUI();
+}
+
+function onAdminFilter(level) {
+  activeRegion = byId('filterRegion')?.value || '';
+  if (level === 'region') { activeDept = ''; activeArr = ''; activeZC = ''; }
+  if (level === 'dept')   { activeArr = '';  activeZC = ''; }
+  if (level === 'arr')    { activeZC = ''; }
+  activeDept = byId('filterDept')?.value || '';
+  activeArr  = byId('filterArr')?.value  || '';
+  activeZC   = byId('filterZC')?.value   || '';
+  populateAdminFilters();
+  renderAll();
+}
+
+function clearAdminFilter() {
+  activeRegion = activeDept = activeArr = activeZC = '';
+  populateAdminFilters();
+  renderAll();
+}
+
+function _updateFilterUI() {
+  const hasFilter = !!(activeRegion || activeDept || activeArr || activeZC);
+  const clearBtn  = byId('clearAdminBtn');
+  const badge     = byId('adminFilterBadge');
+  if (clearBtn) clearBtn.style.display = hasFilter ? '' : 'none';
+  if (badge) {
+    const cnt = filtered().length;
+    badge.textContent = `${cnt} fiche${cnt > 1 ? 's' : ''}`;
+    badge.style.display = hasFilter ? '' : 'none';
+  }
+}
+
 // ─── Démarrage ───────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   bindUI();
@@ -218,9 +314,11 @@ async function reloadData() {
 // ─── Rendu global ────────────────────────────────────────────────────────
 function renderAll() {
   if (!allData.length) return;
+  populateAdminFilters();
   renderOperationalDashboard();
   renderTrendChart();
-  renderStatusChart();
+  renderRegionProgressChart();
+  renderTerritorialTable();
   renderMap();
   renderTable();
   renderStatsForField();
@@ -233,12 +331,14 @@ function renderOperationalDashboard() {
   const isOui = v => v === 'oui' || v === '1' || v === 'yes' || v === true;
   const toInt = v => parseInt(v || 0) || 0;
 
-  const today = new Date().toISOString().split('T')[0];
-  const controleurs = new Set(allData.map(d => d['identification/controleur'] || d['identification/n_controleur']).filter(Boolean));
-  const regions     = new Set(allData.map(d => d['identification/region']).filter(Boolean));
-  const zcs         = new Set(allData.map(d => d['identification/n_zc']).filter(Boolean));
+  // Appliquer les filtres administratifs actifs
+  const data = filtered();
 
-  const dates = allData.map(d => d['identification/date_saisie'] || d._submission_time?.split('T')[0]).filter(Boolean).sort();
+  const controleurs = new Set(data.map(d => d['identification/controleur'] || d['identification/n_controleur']).filter(Boolean));
+  const regions     = new Set(data.map(d => d['identification/region']).filter(Boolean));
+  const zcs         = new Set(data.map(d => d['identification/n_zc']).filter(Boolean));
+
+  const dates = data.map(d => d['identification/date_saisie'] || d._submission_time?.split('T')[0]).filter(Boolean).sort();
   const dateFirst = dates[0], dateLast = dates[dates.length - 1];
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -250,7 +350,7 @@ function renderOperationalDashboard() {
   // chaque soumission couvre des ZD différentes.
   // ══════════════════════════════════════════════════════════════════════════
   const latestByZC = {};   // dernière soumission par ZC (pour totaux_zc)
-  allData.forEach(d => {
+  data.forEach(d => {
     const zc   = d['identification/n_zc']; if (!zc) return;
     const date = d['identification/date_saisie'] || d._submission_time?.split('T')[0] || '';
     if (!latestByZC[zc] || date >= (latestByZC[zc]._date || '')) {
@@ -274,7 +374,7 @@ function renderOperationalDashboard() {
   // ── ZD achevées lors du dernier jour actif (dernière date avec des achèvements) ──
   // BUG CORRIGÉ : ne pas comparer avec "aujourd'hui" (page statique, data figée)
   // → chercher la dernière date avec au moins 1 ZD achevée
-  const datesAvecAch = allData
+  const datesAvecAch = data
     .filter(d => toInt(d['auto_zd_achevees']) > 0 ||
                  toInt(d['totaux_zc/tot_cumul/cumul_zd_achevees']) > 0 ||
                  toInt(d['totaux_zc/total_zd_achevees']) > 0 ||
@@ -286,7 +386,7 @@ function renderOperationalDashboard() {
   // ZD achevées ce jour — auto_zd_achevees compte uniquement l'ancienne structure
   // (etat_avancement/) ; pour la nouvelle (etat/) on compte manuellement depuis suivi_zd
   let zdAcheveesAuj = 0;
-  allData.forEach(d => {
+  data.forEach(d => {
     const dateD = d['identification/date_saisie'] || d._submission_time?.split('T')[0] || '';
     if (dateD !== dateLastActif) return;
     const autoAch = toInt(d['auto_zd_achevees']);
@@ -433,10 +533,10 @@ function renderOperationalDashboard() {
 
   // ── Appréciation ──
   const apprec = { bonne:0, difficile:0, bloquee:0 };
-  allData.forEach(d => { const a = d['bilan/appreciation_globale']; if (a && apprec[a] !== undefined) apprec[a]++; });
+  data.forEach(d => { const a = d['bilan/appreciation_globale']; if (a && apprec[a] !== undefined) apprec[a]++; });
 
   // ── ZC bloquées ──
-  const blockedZCs = allData.filter(d => d['bilan/appreciation_globale'] === 'bloquee').map(d => `ZC ${d['identification/n_zc']}`);
+  const blockedZCs = data.filter(d => d['bilan/appreciation_globale'] === 'bloquee').map(d => `ZC ${d['identification/n_zc']}`);
 
   // ── Format helpers ──
   const fmtDate  = s => { if (!s) return '—'; const d = new Date(s + 'T00:00:00'); return d.toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' }); };
@@ -745,8 +845,9 @@ function renderKPIs() {
 // ─── Graphique tendance ──────────────────────────────────────────────────
 function renderTrendChart() {
   const byDate = {};
-  allData.forEach(d => {
-    const dt = d._submission_time?.split('T')[0];
+  filtered().forEach(d => {
+    // Utiliser date_saisie (date de terrain) plutôt que _submission_time
+    const dt = d['identification/date_saisie'] || d._submission_time?.split('T')[0];
     if (dt) byDate[dt] = (byDate[dt] || 0) + 1;
   });
 
@@ -803,33 +904,173 @@ function renderTrendChart() {
   });
 }
 
-// ─── Graphique statut validation ─────────────────────────────────────────
-function renderStatusChart() {
-  const counts = {};
-  allData.forEach(d => {
-    const s = d._validation_status?.label || 'Non défini';
-    counts[s] = (counts[s] || 0) + 1;
+// ─── Graphique progression ZD par région (remplace le donut validation) ──
+function renderRegionProgressChart() {
+  const toInt = v => parseInt(v || 0) || 0;
+  const byReg = {};
+  deduplicatedFiltered().forEach(d => {
+    const reg = d['identification/region'] || '??';
+    if (!byReg[reg]) byReg[reg] = { assignees: 0, visitees: 0, achevees: 0 };
+    byReg[reg].assignees += toInt(d['auto_zd_apres_maj'] || d['identification/nb_zd_assignees_zc']);
+    byReg[reg].visitees  += toInt(d['auto_nb_zd_visitees']);
+    byReg[reg].achevees  += toInt(d['totaux_zc/tot_cumul/cumul_zd_achevees'] || d['auto_zd_achevees']);
   });
+
+  const regs   = Object.keys(byReg).sort();
+  const labels = regs.map(r => REGION_NAMES[r] || `Rég. ${r}`);
 
   destroyChart('chartStatus');
   chartRefs.chartStatus = new Chart(byId('chartStatus'), {
-    type: 'doughnut',
+    type: 'bar',
     data: {
-      labels: Object.keys(counts),
-      datasets: [{
-        data: Object.values(counts),
-        backgroundColor: ['#16a34a','#d97706','#dc2626','#94a3b8','#7c3aed'],
-        borderWidth: 2, borderColor: '#fff', hoverOffset: 6
-      }]
+      labels,
+      datasets: [
+        {
+          label: 'ZD achevées',
+          data: regs.map(r => byReg[r].achevees),
+          backgroundColor: '#16a34a', borderRadius: 3
+        },
+        {
+          label: 'ZD visitées (en cours)',
+          data: regs.map(r => Math.max(0, byReg[r].visitees - byReg[r].achevees)),
+          backgroundColor: '#0891b2', borderRadius: 3
+        },
+        {
+          label: 'ZD non encore visitées',
+          data: regs.map(r => Math.max(0, byReg[r].assignees - byReg[r].visitees)),
+          backgroundColor: '#e2e8f0', borderRadius: 3
+        }
+      ]
     },
     options: {
+      indexAxis: 'y',
       responsive: true,
-      cutout: '68%',
       plugins: {
-        legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12, padding: 10 } }
+        legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12, padding: 6 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const reg  = regs[ctx.dataIndex];
+              const tot  = byReg[reg].assignees;
+              const pct  = tot > 0 ? Math.round(ctx.raw / tot * 100) : 0;
+              return ` ${ctx.dataset.label} : ${ctx.raw.toLocaleString('fr-FR')} (${pct}%)`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { stacked: true, beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' },
+             ticks: { font: { size: 9 } },
+             title: { display: true, text: 'Nombre de ZD', font: { size: 9 } } },
+        y: { stacked: true, ticks: { font: { size: 10 } } }
       }
     }
   });
+}
+
+// Alias pour compatibilité interne
+function renderStatusChart() { renderRegionProgressChart(); }
+
+// ─── Tableau d'analyse territoriale ──────────────────────────────────────
+function renderTerritorialTable() {
+  const tbody = byId('terrTableBody'); if (!tbody) return;
+  const level = byId('terrLevel')?.value || 'region';
+  const toInt = v => parseInt(v || 0) || 0;
+
+  const KEY_MAP = {
+    region : 'identification/region',
+    dept   : 'identification/departement',
+    arr    : 'identification/arrondissement',
+    zc     : 'identification/n_zc',
+  };
+  const key = KEY_MAP[level];
+  const labelFn = (v) => {
+    if (level === 'region') return REGION_NAMES[v] || `Région ${v}`;
+    if (level === 'dept')   return DEPT_NAMES[v]   || `Dép. ${v}`;
+    if (level === 'arr') {
+      if (ARR_NAMES[v]) return ARR_NAMES[v];
+      const d = DEPT_NAMES[v?.slice(0,4)];
+      return d ? `${d.split(' (')[0]} – Arr.${parseInt(v?.slice(4),10)||v?.slice(4)}` : v;
+    }
+    return `ZC ${v}`;
+  };
+
+  const groups = {};
+  deduplicatedFiltered().forEach(d => {
+    const k = d[key] || '—';
+    if (!groups[k]) groups[k] = { assignees:0, visitees:0, achevees:0, presents:0, nonPayes:0, fiches:0 };
+    groups[k].assignees += toInt(d['auto_zd_apres_maj'] || d['identification/nb_zd_assignees_zc']);
+    groups[k].visitees  += toInt(d['auto_nb_zd_visitees']);
+    groups[k].achevees  += toInt(d['totaux_zc/tot_cumul/cumul_zd_achevees'] || d['auto_zd_achevees']);
+    groups[k].presents  += toInt(d['auto_presents']);
+    groups[k].nonPayes  += toInt(d['auto_non_payes']);
+    groups[k].fiches++;
+  });
+
+  const rows = Object.entries(groups)
+    .sort((a, b) => b[1].assignees - a[1].assignees);
+
+  if (!rows.length) {
+    tbody.innerHTML = '<div class="p-3 text-muted small text-center">Aucune donnée pour cette sélection.</div>';
+    return;
+  }
+
+  const pct = (a, b) => b > 0 ? (a / b * 100).toFixed(1) : '—';
+  const barHtml = (val, total, color) => {
+    const p = total > 0 ? Math.min(100, Math.round(val / total * 100)) : 0;
+    return `<div style="display:flex;align-items:center;gap:4px;min-width:100px">
+      <div style="flex:1;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden">
+        <div style="width:${p}%;height:100%;background:${color};border-radius:3px"></div>
+      </div>
+      <span style="font-size:.7rem;color:${color};font-weight:700;min-width:32px">${p}%</span>
+    </div>`;
+  };
+
+  let html = `<div class="table-responsive">
+  <table class="table table-sm table-hover mb-0" style="font-size:.8rem">
+    <thead class="table-dark">
+      <tr>
+        <th>${level === 'region' ? 'Région' : level === 'dept' ? 'Département' : level === 'arr' ? 'Arrondissement' : 'Zone de Contrôle'}</th>
+        <th class="text-end">ZD assignées</th>
+        <th>ZD visitées</th>
+        <th>ZD achevées</th>
+        <th class="text-end">Agents présents</th>
+        <th class="text-end">Non payés</th>
+        <th class="text-end">Fiches</th>
+      </tr>
+    </thead><tbody>`;
+
+  rows.forEach(([k, v]) => {
+    const npClass = v.nonPayes > 0 ? 'color:#dc2626;font-weight:700' : 'color:#16a34a';
+    html += `<tr>
+      <td><strong>${labelFn(k)}</strong></td>
+      <td class="text-end fw-semibold">${v.assignees.toLocaleString('fr-FR')}</td>
+      <td>${barHtml(v.visitees, v.assignees, '#0891b2')} <small class="text-muted">${v.visitees}</small></td>
+      <td>${barHtml(v.achevees, v.assignees, '#16a34a')} <small class="text-muted">${v.achevees}</small></td>
+      <td class="text-end">${v.presents.toLocaleString('fr-FR')}</td>
+      <td class="text-end" style="${npClass}">${v.nonPayes > 0 ? v.nonPayes.toLocaleString('fr-FR') : '—'}</td>
+      <td class="text-end text-muted">${v.fiches}</td>
+    </tr>`;
+  });
+
+  // Ligne totaux
+  const tot = rows.reduce((acc, [,v]) => {
+    acc.assignees += v.assignees; acc.visitees += v.visitees; acc.achevees += v.achevees;
+    acc.presents  += v.presents;  acc.nonPayes += v.nonPayes;
+    return acc;
+  }, { assignees:0, visitees:0, achevees:0, presents:0, nonPayes:0 });
+  html += `<tr class="table-secondary fw-bold">
+    <td>TOTAL</td>
+    <td class="text-end">${tot.assignees.toLocaleString('fr-FR')}</td>
+    <td>${barHtml(tot.visitees, tot.assignees, '#0891b2')} <small>${tot.visitees}</small></td>
+    <td>${barHtml(tot.achevees, tot.assignees, '#16a34a')} <small>${tot.achevees}</small></td>
+    <td class="text-end">${tot.presents.toLocaleString('fr-FR')}</td>
+    <td class="text-end" style="color:${tot.nonPayes > 0 ? '#dc2626' : '#16a34a'}">${tot.nonPayes > 0 ? tot.nonPayes.toLocaleString('fr-FR') : '—'}</td>
+    <td class="text-end text-muted">${rows.length} entités</td>
+  </tr>`;
+
+  html += '</tbody></table></div>';
+  tbody.innerHTML = html;
 }
 
 // ─── 2 graphiques auto – Vue d'ensemble ──────────────────────────────────
@@ -1070,14 +1311,15 @@ function renderMap(colorField) {
   }
 
   const field      = colorField !== undefined ? colorField : (byId('mapFieldSelect')?.value || '');
-  const uniqueVals = field ? [...new Set(allData.map(d => d[field]).filter(Boolean))] : [];
+  const mapData    = filtered();
+  const uniqueVals = field ? [...new Set(mapData.map(d => d[field]).filter(Boolean))] : [];
   const colorMap   = {};
   uniqueVals.forEach((v, i) => { colorMap[v] = COLORS[i % COLORS.length]; });
 
   const textFields = detectTextFields(3);
   let count = 0;
 
-  allData.forEach(item => {
+  mapData.forEach(item => {
     const geo = item._geolocation;
     if (!Array.isArray(geo) || !geo[0] || geo[0] === 0) return;
     const [lat, lng] = geo;
@@ -1114,52 +1356,91 @@ function renderMap(colorField) {
 }
 
 // ─── Tableau DataTable ───────────────────────────────────────────────────
+// Colonnes fixes : affiche les noms réels des entités admin, évite [object Object]
+const TABLE_COLS = [
+  { key: 'identification/date_saisie',            label: 'Date terrain' },
+  { key: '_submission_time',                       label: 'Date soumission',
+    fmt: v => v ? new Date(v).toLocaleDateString('fr-FR') : '—' },
+  { key: 'identification/controleur',             label: 'Contrôleur' },
+  { key: 'identification/superviseur',            label: 'Superviseur' },
+  { key: 'identification/region',                 label: 'Région',
+    fmt: v => v ? (REGION_NAMES[v] || `Région ${v}`) : '—' },
+  { key: 'identification/departement',            label: 'Département',
+    fmt: v => v ? (DEPT_NAMES[v] || v) : '—' },
+  { key: 'identification/arrondissement',         label: 'Arrondissement',
+    fmt: v => {
+      if (!v) return '—';
+      if (ARR_NAMES[v]) return ARR_NAMES[v];
+      const dept = DEPT_NAMES[v.slice(0,4)];
+      return dept ? `${dept.split(' (')[0]} – Arr.${parseInt(v.slice(4),10)||v.slice(4)}` : v;
+    }},
+  { key: 'identification/n_zc',                   label: 'ZC' },
+  { key: 'identification/n_zs',                   label: 'ZS' },
+  { key: 'auto_zd_apres_maj',                     label: 'ZD assignées' },
+  { key: 'auto_nb_zd_visitees',                   label: 'ZD visitées' },
+  { key: 'totaux_zc/tot_cumul/cumul_zd_achevees', label: 'ZD achevées cumul' },
+  { key: 'auto_zd_achevees',                      label: 'ZD ach. ce jour' },
+  { key: 'auto_presents',                         label: 'Agents présents' },
+  { key: 'auto_absents',                          label: 'Agents absents' },
+  { key: 'auto_non_payes',                        label: 'Non payés' },
+  { key: 'auto_desist',                           label: 'Désistements' },
+  { key: 'auto_reserv',                           label: 'Réservistes' },
+  { key: 'auto_menages',                          label: 'Ménages' },
+  { key: 'bilan/appreciation_globale',            label: 'Appréciation',
+    fmt: v => VALUE_LABELS[v] || v || '—' },
+];
+
 function renderTable() {
   if (dataTableRef) {
     dataTableRef.destroy();
+    dataTableRef = null;
     byId('tableHead').innerHTML = '';
     byId('tableBody').innerHTML = '';
   }
-  if (!allData.length) return;
+  const data = filtered();
+  if (!data.length) {
+    byId('tableInfo').textContent = '0 soumission';
+    return;
+  }
 
-  const SKIP = new Set(['__version__','formhub/uuid','meta/instanceID',
-                        '_uuid','_bamboo_dataset_id','_tags','_notes',
-                        '_status','_submitted_by']);
-  const cols = Object.keys(allData[0]).filter(k => {
-    if (k.startsWith('_') && !['_id','_submission_time','_validation_status'].includes(k)) return false;
-    return !SKIP.has(k);
-  }).slice(0, 25);
-
+  // En-têtes
   const trH = document.createElement('tr');
-  cols.forEach(c => {
+  TABLE_COLS.forEach(c => {
     const th = document.createElement('th');
-    th.textContent = friendlyLabel(c);
-    th.title = c;
+    th.textContent = c.label;
+    th.title = c.key;
     trH.appendChild(th);
   });
   byId('tableHead').appendChild(trH);
 
+  // Lignes
   const frag = document.createDocumentFragment();
-  allData.forEach(item => {
+  data.forEach(item => {
     const tr = document.createElement('tr');
-    cols.forEach(c => {
+    TABLE_COLS.forEach(col => {
       const td = document.createElement('td');
-      let val = item[c];
-      if (c === '_validation_status') val = val?.label || '';
-      if (c === '_submission_time')   val = val ? new Date(val).toLocaleDateString('fr-FR') : '';
-      if (Array.isArray(val))         val = val.join(', ');
-      td.textContent = val ?? '';
+      let val = item[col.key];
+      // Appliquer le formateur si défini
+      if (col.fmt) {
+        td.textContent = col.fmt(val) ?? '—';
+      } else {
+        if (Array.isArray(val))    val = `[${val.length} entrées]`;
+        else if (typeof val === 'object' && val !== null) val = JSON.stringify(val).slice(0, 60);
+        td.textContent = (val !== null && val !== undefined && val !== '') ? val : '—';
+      }
       tr.appendChild(td);
     });
     frag.appendChild(tr);
   });
   byId('tableBody').appendChild(frag);
+
   byId('tableInfo').textContent =
-    `${allData.length.toLocaleString('fr-FR')} lignes · ${cols.length} colonnes`;
+    `${data.length.toLocaleString('fr-FR')} soumission${data.length > 1 ? 's' : ''} · ${TABLE_COLS.length} colonnes`;
 
   dataTableRef = $('#dataTable').DataTable({
     pageLength: 25,
     scrollX: true,
+    order: [[0, 'desc']],
     dom: '<"row align-items-center mb-2"<"col-auto"B><"col"f>>rtip',
     buttons: [
       { extend: 'csv',   text: '<i class="fas fa-file-csv me-1"></i>CSV',    className: 'btn btn-sm btn-outline-success me-1' },
@@ -1355,7 +1636,7 @@ function countValues(field) {
       ? raw.split(' ') : [String(raw)];
     vals.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
   };
-  allData.forEach(d => {
+  filtered().forEach(d => {
     // Champs dans le groupe répété suivi_zd : naviguer dans chaque ligne
     // Supporte les deux versions (etat/ et etat_avancement/)
     if (field.startsWith('suivi_zd/')) {

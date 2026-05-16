@@ -114,6 +114,21 @@
       </div>
     </div>
 
+    <!-- BARRE DE FILTRES ADMINISTRATIFS (globale, toutes pages) -->
+    <div id="adminFilterBar" class="d-none" style="background:var(--surface,#f8fafc);border-bottom:1px solid var(--border,#e2e8f0);padding:.5rem 1rem;">
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <small class="fw-semibold text-muted me-1"><i class="fas fa-filter me-1"></i>Filtrer :</small>
+        <select class="form-select form-select-sm" id="filterRegion" onchange="onAdminFilter('region')" style="width:auto;max-width:155px"></select>
+        <select class="form-select form-select-sm" id="filterDept"   onchange="onAdminFilter('dept')"   style="width:auto;max-width:190px"></select>
+        <select class="form-select form-select-sm" id="filterArr"    onchange="onAdminFilter('arr')"    style="width:auto;max-width:210px"></select>
+        <select class="form-select form-select-sm" id="filterZC"     onchange="onAdminFilter('zc')"     style="width:auto;max-width:110px"></select>
+        <button class="btn btn-sm btn-outline-danger py-0" id="clearAdminBtn" onclick="clearAdminFilter()" style="display:none;font-size:.78rem">
+          <i class="fas fa-times me-1"></i>Effacer
+        </button>
+        <span id="adminFilterBadge" class="badge bg-primary rounded-pill" style="display:none"></span>
+      </div>
+    </div>
+
     <!-- PAGES -->
     <main id="pagesContainer" class="p-3 p-md-4">
 
@@ -277,34 +292,56 @@
 
       <!-- ===== PAGE : STATISTIQUES ===== -->
       <div id="page-charts" class="page-view d-none">
-        <!-- Évolution & Statut -->
+
+        <!-- Tableau territorial -->
         <div class="row g-3 mb-3">
-          <div class="col-12 col-xl-8">
+          <div class="col-12">
+            <div class="dash-card">
+              <div class="dash-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span><i class="fas fa-sitemap text-primary me-2"></i>Analyse territoriale — Progression ZD</span>
+                <select class="form-select form-select-sm" id="terrLevel" onchange="renderTerritorialTable()" style="width:auto">
+                  <option value="region">Par région</option>
+                  <option value="dept">Par département</option>
+                  <option value="arr">Par arrondissement</option>
+                  <option value="zc">Par Zone de Contrôle</option>
+                </select>
+              </div>
+              <div class="dash-card-body p-0" id="terrTableBody">
+                <div class="p-3 text-muted small">Chargement…</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Évolution & Progression régionale -->
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-xl-7">
             <div class="dash-card h-100">
               <div class="dash-card-header">
-                <i class="fas fa-chart-line text-primary me-2"></i>Évolution des soumissions
+                <i class="fas fa-chart-line text-primary me-2"></i>Évolution des soumissions dans le temps
               </div>
               <div class="dash-card-body">
                 <canvas id="chartTrend"></canvas>
               </div>
             </div>
           </div>
-          <div class="col-12 col-xl-4">
+          <div class="col-12 col-xl-5">
             <div class="dash-card h-100">
               <div class="dash-card-header">
-                <i class="fas fa-circle-half-stroke text-success me-2"></i>Statut de validation
+                <i class="fas fa-chart-bar text-success me-2"></i>Progression ZD par région
               </div>
-              <div class="dash-card-body d-flex align-items-center justify-content-center">
-                <canvas id="chartStatus" style="max-height:220px"></canvas>
+              <div class="dash-card-body">
+                <canvas id="chartStatus" style="max-height:320px"></canvas>
               </div>
             </div>
           </div>
         </div>
+
         <!-- Analyse par champ -->
         <div class="row g-3 mb-3 align-items-end">
           <div class="col-auto">
-            <label class="form-label small fw-semibold mb-1">Champ à analyser</label>
-            <select class="form-select form-select-sm" id="fieldSelector" style="min-width:240px;"></select>
+            <label class="form-label small fw-semibold mb-1">Indicateur à analyser</label>
+            <select class="form-select form-select-sm" id="fieldSelector" style="min-width:260px;"></select>
           </div>
         </div>
         <div id="statsArea" class="row g-3"></div>
