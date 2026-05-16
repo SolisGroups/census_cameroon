@@ -1439,7 +1439,7 @@ function renderTable() {
 
   dataTableRef = $('#dataTable').DataTable({
     pageLength: 25,
-    scrollX: true,
+    autoWidth: false,
     order: [[0, 'desc']],
     dom: '<"row align-items-center mb-2"<"col-auto"B><"col"f>>rtip',
     buttons: [
