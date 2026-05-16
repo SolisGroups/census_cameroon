@@ -363,9 +363,9 @@ function renderOperationalDashboard() {
   let totalZdAssignees = 0, totalZdVisitees = 0, totalZdAchevees = 0;
   let totalZdSegmentees = 0, totalZdRegroupees = 0, totalZdCroquis = 0;
   dedupedData.forEach(d => {
-    totalZdAssignees  += toInt(d['auto_zd_apres_maj'] || d['identification/nb_zd_assignees_zc'] || d['totaux_zc/total_zd_assignees']);
-    totalZdVisitees   += toInt(d['auto_nb_zd_visitees'] || d['totaux_zc/total_zd_visitees']);
-    totalZdAchevees   += toInt(d['totaux_zc/tot_cumul/cumul_zd_achevees'] || d['auto_zd_achevees'] || d['totaux_zc/total_zd_achevees']);
+    totalZdAssignees  += getZdAssignees(d);
+    totalZdVisitees   += getZdVisitees(d);
+    totalZdAchevees   += getZdAchevees(d);
     totalZdSegmentees += toInt(d['auto_zd_segmentees'] || d['totaux_zc/total_zd_segmentees']);
     totalZdRegroupees += toInt(d['auto_zd_regroupees'] || d['totaux_zc/total_zd_regroupees']);
     totalZdCroquis    += toInt(d['auto_zd_croquis'] || d['totaux_zc/total_zd_croquis']);
@@ -508,9 +508,9 @@ function renderOperationalDashboard() {
   dedupedData.forEach(d => {
     const zc = d['identification/n_zc']; if (!zc) return;
     byZC[zc] = {
-      visitees      : toInt(d['auto_nb_zd_visitees'] || d['totaux_zc/total_zd_visitees']),
-      achevees      : toInt(d['totaux_zc/tot_cumul/cumul_zd_achevees'] || d['auto_zd_achevees'] || d['totaux_zc/total_zd_achevees']),
-      assignees     : toInt(d['auto_zd_apres_maj'] || d['identification/nb_zd_assignees_zc'] || d['totaux_zc/total_zd_assignees']),
+      visitees      : getZdVisitees(d),
+      achevees      : getZdAchevees(d),
+      assignees     : getZdAssignees(d),
       nonPayes      : 0,
       desistements  : 0,
       menages       : 0,
@@ -943,9 +943,9 @@ function renderRegionProgressChart() {
   deduplicatedFiltered().forEach(d => {
     const reg = d['identification/region'] || '??';
     if (!byReg[reg]) byReg[reg] = { assignees: 0, visitees: 0, achevees: 0 };
-    byReg[reg].assignees += toInt(d['auto_zd_apres_maj'] || d['identification/nb_zd_assignees_zc']);
-    byReg[reg].visitees  += toInt(d['auto_nb_zd_visitees']);
-    byReg[reg].achevees  += toInt(d['totaux_zc/tot_cumul/cumul_zd_achevees'] || d['auto_zd_achevees']);
+    byReg[reg].assignees += getZdAssignees(d);
+    byReg[reg].visitees  += getZdVisitees(d);
+    byReg[reg].achevees  += getZdAchevees(d);
   });
 
   const regs   = Object.keys(byReg).sort();
@@ -1031,9 +1031,9 @@ function renderTerritorialTable() {
   deduplicatedFiltered().forEach(d => {
     const k = d[key] || '—';
     if (!groups[k]) groups[k] = { assignees:0, visitees:0, achevees:0, presents:0, nonPayes:0, fiches:0 };
-    groups[k].assignees += toInt(d['auto_zd_apres_maj'] || d['identification/nb_zd_assignees_zc']);
-    groups[k].visitees  += toInt(d['auto_nb_zd_visitees']);
-    groups[k].achevees  += toInt(d['totaux_zc/tot_cumul/cumul_zd_achevees'] || d['auto_zd_achevees']);
+    groups[k].assignees += getZdAssignees(d);
+    groups[k].visitees  += getZdVisitees(d);
+    groups[k].achevees  += getZdAchevees(d);
     groups[k].presents  += toInt(d['auto_presents']);
     groups[k].nonPayes  += toInt(d['auto_non_payes']);
     groups[k].fiches++;
@@ -1658,6 +1658,19 @@ function detectTextFields(max = 3) {
     })
     .slice(0, max);
 }
+
+// ─── Accesseurs ZD canoniques (source unique de vérité pour toute l'appli) ──
+// Ces 3 helpers centralisent les chaînes de fallback pour éviter les
+// incohérences entre Vue d'ensemble, tableau territorial et graphique régional.
+const toIntG  = v => parseInt(v || 0) || 0;
+const getZdAssignees = d => toIntG(d['auto_zd_apres_maj']
+  || d['identification/nb_zd_assignees_zc']
+  || d['totaux_zc/total_zd_assignees']);
+const getZdVisitees  = d => toIntG(d['auto_nb_zd_visitees']
+  || d['totaux_zc/total_zd_visitees']);
+const getZdAchevees  = d => toIntG(d['totaux_zc/tot_cumul/cumul_zd_achevees']
+  || d['auto_zd_achevees']
+  || d['totaux_zc/total_zd_achevees']);
 
 // ─── Helpers données ──────────────────────────────────────────────────────
 function countValues(field) {
